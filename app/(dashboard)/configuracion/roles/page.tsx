@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { Shield, Plus, Edit2, Trash2, X, Check, Loader2, Search } from 'lucide-react'
+import { Shield, Plus, Edit2, Trash2, X, Check, Loader2, Search, AlertCircle } from 'lucide-react'
+import { motion, AnimatePresence } from 'motion/react'
+import { PageHeader } from '@/src/components/ui/PageHeader'
+import { Button } from '@/src/components/ui/Button'
+import { Input } from '@/src/components/ui/Input'
+import { Modal } from '@/src/components/Modal'
+import { EmptyState } from '@/src/components/EmptyState'
+import { Badge } from '@/src/components/ui/Badge'
+import { cn } from '@/src/lib/utils'
 import type { AppModule } from '@/lib/permissions'
 
 interface Permission {
@@ -45,7 +53,11 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
-  const [form, setForm] = useState<{ name: string; description: string; permissions: Permission[] }>({
+  const [form, setForm] = useState<{
+    name: string
+    description: string
+    permissions: Permission[]
+  }>({
     name: '',
     description: '',
     permissions: [],
@@ -82,7 +94,6 @@ export default function RolesPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchRoles()
     }
   }, [authLoading, user])
@@ -106,10 +117,17 @@ export default function RolesPage() {
 
   const openEdit = (role: Role) => {
     setEditingRole(role)
-    // Fusionar permisos existentes con todos los módulos para no perder ninguno
     const mergedPermissions = Object.keys(MODULE_LABELS).map((module) => {
       const existing = role.permissions.find((p) => p.module === module)
-      return existing || { module, view: false, create: false, edit: false, delete: false }
+      return (
+        existing || {
+          module,
+          view: false,
+          create: false,
+          edit: false,
+          delete: false,
+        }
+      )
     })
     setForm({
       name: role.name,
@@ -120,7 +138,10 @@ export default function RolesPage() {
     setShowModal(true)
   }
 
-  const togglePermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete') => {
+  const togglePermission = (
+    module: string,
+    action: 'view' | 'create' | 'edit' | 'delete'
+  ) => {
     setForm((prev) => ({
       ...prev,
       permissions: prev.permissions.map((p) =>
@@ -133,7 +154,9 @@ export default function RolesPage() {
     setForm((prev) => ({
       ...prev,
       permissions: prev.permissions.map((p) =>
-        p.module === module ? { ...p, view: value, create: value, edit: value, delete: value } : p
+        p.module === module
+          ? { ...p, view: value, create: value, edit: value, delete: value }
+          : p
       ),
     }))
   }
@@ -184,259 +207,281 @@ export default function RolesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            Roles y Permisos
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Define qué puede ver y hacer cada rol en el sistema.
-          </p>
-        </div>
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo rol
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Administración"
+        title="Roles y permisos"
+        description="Define qué puede ver y hacer cada rol en el sistema."
+        actions={
+          <Button
+            onClick={openNew}
+            leadingIcon={<Plus className="h-4 w-4" />}
+          >
+            Nuevo rol
+          </Button>
+        }
+      />
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-6 h-6 animate-spin text-muted" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted" />
         </div>
       ) : (
         <>
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-            <input
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar rol por nombre o descripción..."
-              className="w-full pl-9 pr-3 py-2.5 border border-hairline rounded-lg bg-surface-card text-body text-sm"
+              placeholder="Buscar rol por nombre o descripción…"
+              leadingIcon={<Search className="h-3.5 w-3.5" />}
+              className="max-w-md"
             />
           </div>
 
           {filteredRoles.length === 0 ? (
-            <div className="bg-surface-card rounded-xl p-12 border border-hairline text-center">
-              <Shield className="w-10 h-10 text-muted mx-auto mb-3" />
-              <p className="text-sm text-muted">
-                {roles.length === 0
-                  ? 'No hay roles creados. Crea el primero con el botón superior.'
-                  : 'No se encontraron roles con la búsqueda aplicada.'}
-              </p>
-            </div>
+            <EmptyState
+              icon={Shield}
+              title={
+                roles.length === 0
+                  ? 'No hay roles creados'
+                  : 'Sin coincidencias'
+              }
+              description={
+                roles.length === 0
+                  ? 'Crea el primer rol con el botón superior.'
+                  : 'No se encontraron roles con la búsqueda aplicada.'
+              }
+            />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filteredRoles.map((role) => (
-                <div
+                <motion.div
                   key={role.id}
-                  className="bg-surface-card rounded-xl p-5 border border-hairline"
+                  layout
+                  className="ts-card-pad"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-                        {role.name}
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="flex items-center gap-2 text-sm font-medium text-ink">
+                        <span className="truncate">{role.name}</span>
                         {role.isSuperAdmin && (
-                          <span className="text-2xs px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                          <Badge tone="primary" className="shrink-0">
                             SUPER
-                          </span>
+                          </Badge>
                         )}
                       </h3>
-                      <p className="text-xs text-muted mt-1">
+                      <p className="mt-1 text-xs text-muted">
                         {role.description || 'Sin descripción'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-xs text-muted-soft mt-3 pt-3 border-t border-hairline">
+                  <div className="mt-3 border-t border-hairline pt-3 text-xs text-muted-soft">
                     {role.isSuperAdmin ? (
                       <span>Acceso total a todos los módulos</span>
                     ) : (
                       <span>
-                        {role.permissions.filter((p) => p.view).length} módulos con acceso ·{' '}
-                        {role._count?.users ?? 0} usuario(s)
+                        {role.permissions.filter((p) => p.view).length} módulos
+                        con acceso · {role._count?.users ?? 0} usuario(s)
                       </span>
                     )}
                   </div>
 
                   {!role.isSuperAdmin && (
-                    <div className="flex items-center gap-2 mt-4">
-                      <button
+                    <div className="mt-4 flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
                         onClick={() => openEdit(role)}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-hairline rounded-lg hover:bg-surface-soft text-body"
+                        leadingIcon={<Edit2 className="h-3.5 w-3.5" />}
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
                         Editar
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setDeleteId(role.id)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm border border-hairline rounded-lg hover:bg-error/10 text-error"
+                        className="text-error hover:bg-error-soft"
+                        leadingIcon={<Trash2 className="h-3.5 w-3.5" />}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <span className="sr-only">Eliminar</span>
+                      </Button>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
         </>
       )}
 
-      {/* Modal de creación/edición */}
-
-      {/* Modal de creación/edición */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-surface-card rounded-xl border border-hairline w-full max-w-3xl my-8">
-            <div className="flex items-center justify-between p-5 border-b border-hairline">
-              <h2 className="text-lg font-semibold text-ink">
-                {editingRole ? `Editar rol: ${editingRole.name}` : 'Crear nuevo rol'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 hover:bg-surface-soft rounded-lg"
-              >
-                <X className="w-5 h-5 text-muted" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <AnimatePresence>
+        {showModal && (
+          <Modal
+            open
+            size="xl"
+            title={editingRole ? `Editar rol: ${editingRole.name}` : 'Crear nuevo rol'}
+            onClose={() => setShowModal(false)}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={save} loading={saving}>
+                  {editingRole ? 'Guardar cambios' : 'Crear rol'}
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                    Nombre del rol *
-                  </label>
-                  <input
+                  <label className="ts-label">Nombre del rol *</label>
+                  <Input
                     type="text"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
                     placeholder="Ej: Vendedor"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                    Descripción
-                  </label>
-                  <input
+                  <label className="ts-label">Descripción</label>
+                  <Input
                     type="text"
                     value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                    onChange={(e) =>
+                      setForm({ ...form, description: e.target.value })
+                    }
                     placeholder="Ej: Solo puede ver y crear ventas"
                   />
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-body-strong mb-3">Permisos por módulo</h3>
-                <div className="border border-hairline rounded-lg overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-surface-soft">
-                      <tr>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted uppercase">Módulo</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase">Ver</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase">Crear</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase">Editar</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase">Eliminar</th>
-                        <th className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase">Todos</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {form.permissions.map((perm) => (
-                        <tr key={perm.module} className="border-t border-hairline">
-                          <td className="px-3 py-2 text-body font-medium">
-                            {MODULE_LABELS[perm.module] || perm.module}
-                          </td>
-                          {(['view', 'create', 'edit', 'delete'] as const).map((action) => (
-                            <td key={action} className="px-2 py-2 text-center">
-                              <button
-                                onClick={() => togglePermission(perm.module, action)}
-                                className={`w-6 h-6 rounded inline-flex items-center justify-center transition-colors ${
-                                  perm[action]
-                                    ? 'bg-primary text-on-primary'
-                                    : 'bg-canvas border border-hairline hover:border-primary'
-                                }`}
-                              >
-                                {perm[action] && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                            </td>
-                          ))}
-                          <td className="px-2 py-2 text-center">
-                            <button
-                              onClick={() => {
-                                const all = perm.view && perm.create && perm.edit && perm.delete
-                                toggleAllForModule(perm.module, !all)
-                              }}
-                              className="text-2xs px-2 py-1 border border-hairline rounded hover:bg-surface-soft"
+                <h3 className="mb-3 text-sm font-medium text-ink">
+                  Permisos por módulo
+                </h3>
+                <div className="overflow-hidden rounded-md border border-hairline">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-ash/60 text-[11px] uppercase tracking-wider text-pewter">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold">
+                            Módulo
+                          </th>
+                          {(
+                            ['view', 'create', 'edit', 'delete'] as const
+                          ).map((a) => (
+                            <th
+                              key={a}
+                              className="px-2 py-2 text-center font-semibold"
                             >
-                              Todo
-                            </button>
-                          </td>
+                              {a === 'view'
+                                ? 'Ver'
+                                : a === 'create'
+                                ? 'Crear'
+                                : a === 'edit'
+                                ? 'Editar'
+                                : 'Eliminar'}
+                            </th>
+                          ))}
+                          <th className="px-2 py-2 text-center font-semibold">
+                            Todos
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {form.permissions.map((perm) => {
+                          const all =
+                            perm.view &&
+                            perm.create &&
+                            perm.edit &&
+                            perm.delete
+                          return (
+                            <tr
+                              key={perm.module}
+                              className="border-t border-hairline"
+                            >
+                              <td className="px-3 py-2 font-medium text-ink">
+                                {MODULE_LABELS[perm.module] || perm.module}
+                              </td>
+                              {(
+                                ['view', 'create', 'edit', 'delete'] as const
+                              ).map((action) => (
+                                <td key={action} className="px-2 py-2 text-center">
+                                  <button
+                                    onClick={() =>
+                                      togglePermission(perm.module, action)
+                                    }
+                                    className={cn(
+                                      'inline-flex h-6 w-6 items-center justify-center rounded transition-colors',
+                                      perm[action]
+                                        ? 'bg-primary text-white'
+                                        : 'border border-hairline-strong bg-canvas hover:border-primary'
+                                    )}
+                                    aria-label={`${action} ${MODULE_LABELS[perm.module]}`}
+                                  >
+                                    {perm[action] && (
+                                      <Check className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </td>
+                              ))}
+                              <td className="px-2 py-2 text-center">
+                                <button
+                                  onClick={() =>
+                                    toggleAllForModule(perm.module, !all)
+                                  }
+                                  className="rounded border border-hairline-strong px-2 py-1 text-[11px] font-medium text-graphite hover:bg-ash"
+                                >
+                                  {all ? 'Quitar' : 'Todo'}
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
               {error && (
-                <div className="text-sm text-error bg-error/10 px-3 py-2 rounded-lg">
-                  {error}
+                <div className="flex items-start gap-2 rounded-md bg-error-soft px-3 py-2 text-sm text-error">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
             </div>
+          </Modal>
+        )}
+      </AnimatePresence>
 
-            <div className="flex items-center justify-end gap-2 p-5 border-t border-hairline bg-surface-soft">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2.5 border border-hairline rounded-lg text-body hover:bg-surface-card"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active disabled:opacity-50 font-medium"
-              >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingRole ? 'Guardar cambios' : 'Crear rol'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de confirmación de eliminación */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-card rounded-xl border border-hairline w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-ink mb-2">¿Eliminar este rol?</h2>
-            <p className="text-sm text-muted mb-5">
-              Esta acción no se puede deshacer. Solo se pueden eliminar roles que no tengan usuarios asignados.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="px-4 py-2.5 border border-hairline rounded-lg text-body hover:bg-surface-soft"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => remove(deleteId)}
-                className="px-4 py-2.5 bg-error text-on-primary rounded-lg hover:opacity-90 font-medium"
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={deleteId !== null}
+        title="¿Eliminar este rol?"
+        subtitle="Esta acción no se puede deshacer. Solo se pueden eliminar roles que no tengan usuarios asignados."
+        onClose={() => setDeleteId(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteId && remove(deleteId)}
+            >
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">
+          Confirma que quieres eliminar el rol seleccionado. Los usuarios con
+          este rol asignado perderán sus permisos.
+        </p>
+      </Modal>
     </div>
   )
 }

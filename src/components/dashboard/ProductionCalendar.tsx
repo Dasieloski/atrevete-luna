@@ -27,7 +27,7 @@ interface ProductionCalendarProps {
 }
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const COLORS = ['#cc785c', '#5db8a6', '#e8a55a']
+const COLORS = ['#3E6AE1', '#12B76A', '#F79009']
 
 export function ProductionCalendar({ products, dailyData, currentMonth, dateRange }: ProductionCalendarProps) {
   const calendarDays = useMemo(() => {
@@ -77,10 +77,13 @@ export function ProductionCalendar({ products, dailyData, currentMonth, dateRang
   }, [calendarDays])
 
   return (
-    <div className="bg-surface-card rounded-xl border border-hairline overflow-hidden">
+    <section className="ts-card overflow-hidden">
       <div className="grid grid-cols-7">
         {DAYS.map((day) => (
-          <div key={day} className="px-2 py-2 text-center text-xs font-semibold text-muted uppercase tracking-wider border-b border-hairline bg-surface-soft/50">
+          <div
+            key={day}
+            className="border-b border-hairline bg-ash/50 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-muted"
+          >
             {day}
           </div>
         ))}
@@ -89,7 +92,12 @@ export function ProductionCalendar({ products, dailyData, currentMonth, dateRang
         {weeks.map((week, wi) =>
           week.map((cell, ci) => {
             if (!cell.date) {
-              return <div key={`${wi}-${ci}`} className="min-h-[100px] p-1.5 border-b border-r border-hairline/40 bg-surface-soft/20" />
+              return (
+                <div
+                  key={`${wi}-${ci}`}
+                  className="min-h-[100px] border-b border-r border-hairline/40 bg-ash/20 p-1.5 last:border-r-0"
+                />
+              )
             }
             const dayData = dailyData[cell.date]
             const hasData = dayData && Object.keys(dayData.production).length > 0
@@ -97,11 +105,15 @@ export function ProductionCalendar({ products, dailyData, currentMonth, dateRang
             return (
               <div
                 key={cell.date}
-                className={`min-h-[100px] p-1.5 border-b border-r border-hairline/40 transition-colors ${
-                  cell.isToday ? 'bg-primary/5 ring-1 ring-primary/30' : cell.isInRange ? 'bg-canvas' : 'bg-surface-soft/30'
+                className={`min-h-[100px] border-b border-r border-hairline/40 p-1.5 transition-colors last:border-r-0 ${
+                  cell.isToday
+                    ? 'bg-primary/5 ring-1 ring-inset ring-primary/30'
+                    : cell.isInRange
+                    ? 'bg-canvas'
+                    : 'bg-ash/30'
                 }`}
               >
-                <div className={`text-xs font-bold mb-1 ${cell.isToday ? 'text-primary' : 'text-muted'}`}>
+                <div className={`mb-1 text-xs font-medium ${cell.isToday ? 'text-primary' : 'text-muted'}`}>
                   {cell.day}
                 </div>
                 {hasData && (
@@ -111,18 +123,21 @@ export function ProductionCalendar({ products, dailyData, currentMonth, dateRang
                       const prodColor = COLORS[idx % COLORS.length]
                       return (
                         <div key={prodId} className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: prodColor }} />
-                          <span className="text-[10px] leading-tight text-body-strong font-medium truncate">
+                          <span
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: prodColor }}
+                          />
+                          <span className="truncate text-[10px] font-medium leading-tight text-body-strong">
                             {product?.name?.split(' ')[0] || '?'}
                           </span>
-                          <span className="text-[10px] leading-tight font-mono text-ink ml-auto">
+                          <span className="ml-auto font-mono text-[10px] leading-tight text-ink">
                             {qty.toLocaleString()}
                           </span>
                         </div>
                       )
                     })}
                     {dayData.factoryValue > 0 && (
-                      <div className="text-[9px] text-muted font-mono pt-0.5 border-t border-hairline/30 mt-0.5">
+                      <div className="mt-0.5 border-t border-hairline/30 pt-0.5 font-mono text-[9px] text-muted">
                         {formatCurrency(dayData.factoryValue)}
                       </div>
                     )}
@@ -133,6 +148,6 @@ export function ProductionCalendar({ products, dailyData, currentMonth, dateRang
           })
         )}
       </div>
-    </div>
+    </section>
   )
 }

@@ -1,83 +1,71 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUserFromSession } from '@/lib/auth'
-import {
-  LayoutDashboard,
-  Factory,
-  Warehouse,
-  Package,
-  Users,
-  BarChart3,
-  DollarSign,
-  CreditCard,
-  Settings,
-  LogOut,
-  ShoppingCart,
-  Shield,
-  UserCog,
-} from 'lucide-react'
 import type { AppModule } from '@/lib/permissions'
+import {
+  DashboardShell,
+  type NavItem,
+  type NavSection,
+} from '@/src/components/dashboard/DashboardShell'
+import { LogoutAction } from '@/src/components/dashboard/LogoutAction'
 
-type NavItem = {
-  href: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  hint?: string
-  module: AppModule
-}
-type NavSection = { title: string; items: NavItem[] }
+type IconName =
+  | 'dashboard'
+  | 'produccion'
+  | 'almacen'
+  | 'ventas'
+  | 'productos'
+  | 'clientes'
+  | 'gastos'
+  | 'deudas'
+  | 'estadisticas'
+  | 'configuracion'
+  | 'roles'
+  | 'usuarios'
 
-const navSections: NavSection[] = [
+const navSections: { title: string; items: Array<Omit<NavItem, 'icon' | 'module'> & { icon: IconName; module: AppModule }> }[] = [
   {
     title: 'Resumen',
     items: [
-      { href: '/', label: 'Tablero', icon: LayoutDashboard, hint: 'Vista general', module: 'dashboard' },
+      { href: '/', label: 'Tablero', icon: 'dashboard', hint: 'Vista general', module: 'dashboard' },
     ],
   },
   {
     title: 'Cadena de Suministro',
     items: [
-      { href: '/produccion', label: 'Producción', icon: Factory, hint: '1. Registrar fabricación', module: 'produccion' },
-      { href: '/almacen', label: 'Almacén', icon: Warehouse, hint: '2. Mover al almacén', module: 'almacen' },
-      { href: '/ventas', label: 'Distribución', icon: ShoppingCart, hint: '3. Vender a clientes', module: 'ventas' },
+      { href: '/produccion', label: 'Producción', icon: 'produccion', hint: '1. Registrar fabricación', module: 'produccion' },
+      { href: '/almacen', label: 'Almacén', icon: 'almacen', hint: '2. Mover al almacén', module: 'almacen' },
+      { href: '/ventas', label: 'Distribución', icon: 'ventas', hint: '3. Vender a clientes', module: 'ventas' },
     ],
   },
   {
     title: 'Catálogo',
     items: [
-      { href: '/productos', label: 'Productos', icon: Package, hint: 'Catálogo y precios', module: 'productos' },
-      { href: '/clientes', label: 'Clientes', icon: Users, hint: 'Base de clientes', module: 'clientes' },
+      { href: '/productos', label: 'Productos', icon: 'productos', hint: 'Catálogo y precios', module: 'productos' },
+      { href: '/clientes', label: 'Clientes', icon: 'clientes', hint: 'Base de clientes', module: 'clientes' },
     ],
   },
   {
     title: 'Finanzas',
     items: [
-      { href: '/gastos', label: 'Gastos y Eventos', icon: DollarSign, module: 'gastos' },
-      { href: '/deudas', label: 'Control de Deudas', icon: CreditCard, module: 'deudas' },
+      { href: '/gastos', label: 'Gastos y Eventos', icon: 'gastos', module: 'gastos' },
+      { href: '/deudas', label: 'Control de Deudas', icon: 'deudas', module: 'deudas' },
     ],
   },
   {
     title: 'Análisis',
     items: [
-      { href: '/estadisticas', label: 'Estadísticas', icon: BarChart3, module: 'estadisticas' },
+      { href: '/estadisticas', label: 'Estadísticas', icon: 'estadisticas', module: 'estadisticas' },
     ],
   },
   {
     title: 'Administración',
     items: [
-      { href: '/configuracion', label: 'Configuración', icon: Settings, module: 'configuracion' },
-      { href: '/configuracion/roles', label: 'Roles y Permisos', icon: Shield, module: 'roles' },
-      { href: '/configuracion/usuarios', label: 'Usuarios', icon: UserCog, module: 'usuarios' },
+      { href: '/configuracion', label: 'Configuración', icon: 'configuracion', module: 'configuracion' },
+      { href: '/configuracion/roles', label: 'Roles y Permisos', icon: 'roles', module: 'roles' },
+      { href: '/configuracion/usuarios', label: 'Usuarios', icon: 'usuarios', module: 'usuarios' },
     ],
   },
 ]
-
-async function LogoutButton() {
-  'use server'
-  const { cookies } = await import('next/headers')
-  ;(await cookies()).delete('token')
-  redirect('/login')
-}
 
 function hasModulePermission(
   isSuperAdmin: boolean,
@@ -98,72 +86,29 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
-  // Filtrar secciones y items según los permisos del usuario
-  const filteredSections = navSections
+  const filteredSections: NavSection[] = navSections
     .map((section) => ({
-      ...section,
-      items: section.items.filter((item) =>
-        hasModulePermission(user.role.isSuperAdmin, user.role.permissions, item.module)
-      ),
+      title: section.title,
+      items: section.items
+        .filter((item) =>
+          hasModulePermission(user.role.isSuperAdmin, user.role.permissions, item.module)
+        )
+        .map(({ icon, ...rest }) => ({ ...rest, icon })),
     }))
     .filter((section) => section.items.length > 0)
 
   return (
-    <div className="flex min-h-screen bg-canvas">
-      <aside className="w-64 bg-surface-card border-r border-hairline flex flex-col h-screen sticky top-0">
-        <div className="p-6 border-b border-hairline">
-          <h1 className="text-xl font-bold text-ink">Atrevete Luna</h1>
-          <p className="text-sm text-muted mt-1">{user.name}</p>
-          <p className="text-xs text-muted-soft mt-0.5">
-            {user.role.isSuperAdmin ? 'Super Administrador' : user.role.name}
-          </p>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-5 overflow-y-auto">
-          {filteredSections.map((section) => (
-            <div key={section.title} className="space-y-1">
-              <h3 className="px-3 text-2xs font-bold text-muted uppercase tracking-wider">
-                {section.title}
-              </h3>
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="group flex items-start gap-3 px-3 py-2 rounded-lg text-sm text-body hover:bg-surface-soft transition-colors"
-                  >
-                    <item.icon className="w-4 h-4 text-muted mt-0.5 shrink-0 group-hover:text-ink" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium leading-tight">{item.label}</div>
-                      {item.hint && (
-                        <div className="text-2xs text-muted-soft mt-0.5 leading-tight">
-                          {item.hint}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-hairline">
-          <form action={LogoutButton}>
-            <button
-              type="submit"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-error hover:bg-surface-soft transition-colors w-full"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="text-sm font-medium">Cerrar Sesion</span>
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <main className="flex-1 p-8 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <DashboardShell
+      user={{
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role.isSuperAdmin ? 'Super Administrador' : user.role.name,
+      }}
+      sections={filteredSections}
+      logoutAction={<LogoutAction />}
+    >
+      {children}
+    </DashboardShell>
   )
 }

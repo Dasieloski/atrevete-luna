@@ -106,17 +106,17 @@ export function CubaProvinceChart({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <CubaMap
           metrics={metrics}
           markers={markers}
           selectedId={selected}
           onSelect={(id) => setSelected((s) => (s === id ? null : id))}
           height={height}
-          colorScheme="coral"
+          colorScheme="cool"
         />
-        <div className="bg-surface-card rounded-xl border border-hairline p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+        <div className="ts-card p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
             Top provincias
           </p>
           <ul className="mt-3 space-y-2">
@@ -130,10 +130,10 @@ export function CubaProvinceChart({
                 <li
                   key={id}
                   onClick={() => setSelected((s) => (s === id ? null : id))}
-                  className={`cursor-pointer rounded-md border p-2 transition ${
+                  className={`cursor-pointer rounded-md border p-2 transition-colors ${
                     isSel
-                      ? 'border-accent-coral bg-accent-coral/5'
-                      : 'border-hairline/60 hover:border-hairline'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-hairline hover:border-pewter'
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs">
@@ -144,9 +144,9 @@ export function CubaProvinceChart({
                         : value}
                     </span>
                   </div>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-surface-soft">
+                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-ash">
                     <div
-                      className="h-full bg-accent-coral"
+                      className="h-full bg-primary"
                       style={{ width: `${pct}%`, opacity: 0.4 + (pct / 100) * 0.6 }}
                     />
                   </div>
@@ -157,7 +157,7 @@ export function CubaProvinceChart({
           {selected && (
             <button
               onClick={() => setSelected(null)}
-              className="mt-3 w-full rounded-md border border-hairline px-3 py-1.5 text-xs text-muted hover:bg-surface-soft"
+              className="mt-3 w-full rounded-md border border-hairline px-3 py-1.5 text-xs text-muted transition-colors hover:bg-ash hover:text-ink"
             >
               Limpiar selección
             </button>

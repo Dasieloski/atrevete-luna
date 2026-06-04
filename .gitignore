@@ -48,4 +48,5 @@ next-env.d.ts
 # Agent tools (not part of the app)
 .agents/
 .claude/
+.opencode/
 skills-lock.json

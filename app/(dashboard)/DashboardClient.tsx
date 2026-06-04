@@ -1,11 +1,28 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { RefreshCw, CalendarDays, Table2, BarChart3, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  RefreshCw,
+  CalendarDays,
+  Table2,
+  BarChart3,
+  AlertTriangle,
+  ChevronDown,
+  Factory,
+  ShoppingCart,
+  TrendingUp,
+  CreditCard,
+} from 'lucide-react'
+import { motion } from 'motion/react'
 import { DateRangeFilter, defaultRange } from '@/src/components/DateRangeFilter'
 import { ProductionCalendar } from '@/src/components/dashboard/ProductionCalendar'
 import { DailySummaryTable } from '@/src/components/dashboard/DailySummaryTable'
 import { DashboardCharts } from '@/src/components/dashboard/DashboardCharts'
+import { PageHeader } from '@/src/components/ui/PageHeader'
+import { Button } from '@/src/components/ui/Button'
+import { StatCard } from '@/src/components/StatCard'
+import { Tabs } from '@/src/components/ui/Tabs'
+import { cn } from '@/src/lib/utils'
 import type { DateRange } from '@/src/lib/business'
 import { formatCurrency } from '@/src/lib/format'
 
@@ -70,33 +87,60 @@ interface DashboardData {
   totalDebt: number
 }
 
-function buildDailyData(productions: ProductionRecord[], transfers: TransferRecord[], sales: SaleRecord[], products: ProductInfo[]): Record<string, DayProduction> {
+function buildDailyData(
+  productions: ProductionRecord[],
+  transfers: TransferRecord[],
+  sales: SaleRecord[],
+  products: ProductInfo[]
+): Record<string, DayProduction> {
   const map: Record<string, DayProduction> = {}
 
   for (const p of productions) {
     const key = p.date.slice(0, 10)
-    if (!map[key]) map[key] = { date: key, production: {}, transfers: {}, sales: {}, factoryValue: 0 }
-    map[key].production[p.productId] = (map[key].production[p.productId] || 0) + p.quantity
+    if (!map[key])
+      map[key] = {
+        date: key,
+        production: {},
+        transfers: {},
+        sales: {},
+        factoryValue: 0,
+      }
+    map[key].production[p.productId] =
+      (map[key].production[p.productId] || 0) + p.quantity
   }
 
   for (const t of transfers) {
     const key = t.date.slice(0, 10)
-    if (!map[key]) map[key] = { date: key, production: {}, transfers: {}, sales: {}, factoryValue: 0 }
-    map[key].transfers[t.productId] = (map[key].transfers[t.productId] || 0) + t.quantity
+    if (!map[key])
+      map[key] = {
+        date: key,
+        production: {},
+        transfers: {},
+        sales: {},
+        factoryValue: 0,
+      }
+    map[key].transfers[t.productId] =
+      (map[key].transfers[t.productId] || 0) + t.quantity
   }
 
   for (const s of sales) {
     const key = s.date.slice(0, 10)
-    if (!map[key]) map[key] = { date: key, production: {}, transfers: {}, sales: {}, factoryValue: 0 }
-    if (!map[key].sales[s.productId]) map[key].sales[s.productId] = { quantity: 0, total: 0 }
+    if (!map[key])
+      map[key] = {
+        date: key,
+        production: {},
+        transfers: {},
+        sales: {},
+        factoryValue: 0,
+      }
+    if (!map[key].sales[s.productId])
+      map[key].sales[s.productId] = { quantity: 0, total: 0 }
     map[key].sales[s.productId].quantity += s.quantity
     map[key].sales[s.productId].total += s.total
   }
 
   const priceMap: Record<string, number> = {}
-  for (const prod of products) {
-    priceMap[prod.id] = prod.priceWarehouse
-  }
+  for (const prod of products) priceMap[prod.id] = prod.priceWarehouse
 
   for (const [, day] of Object.entries(map)) {
     let value = 0
@@ -109,20 +153,22 @@ function buildDailyData(productions: ProductionRecord[], transfers: TransferReco
   return map
 }
 
+type View = 'calendar' | 'table' | 'charts'
+
 export default function DashboardClient() {
   const [dateRange, setDateRange] = useState<DateRange>(defaultRange)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showCalendar, setShowCalendar] = useState(true)
-  const [showTable, setShowTable] = useState(true)
-  const [showCharts, setShowCharts] = useState(true)
+  const [view, setView] = useState<View>('calendar')
 
   const refresh = useCallback(async (range: DateRange) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/dashboard-data?from=${range.from}&to=${range.to}`)
+      const res = await fetch(
+        `/api/dashboard-data?from=${range.from}&to=${range.to}`
+      )
       if (!res.ok) throw new Error('Error al cargar datos')
       const json: DashboardData = await res.json()
       setData(json)
@@ -133,18 +179,22 @@ export default function DashboardClient() {
     }
   }, [])
 
-  // Load data on mount and when date range changes
-  useEffect(() => { refresh(dateRange) }, [dateRange]) // eslint-disable-line
+  useEffect(() => {
+    refresh(dateRange)
+  }, [dateRange, refresh])
 
   const dailyData = useMemo(() => {
     if (!data) return {}
-    return buildDailyData(data.productions, data.transfers, data.sales, data.products)
+    return buildDailyData(
+      data.productions,
+      data.transfers,
+      data.sales,
+      data.products
+    )
   }, [data])
 
   const currentMonth = useMemo(() => {
-    if (dateRange.from) {
-      return new Date(dateRange.from + 'T12:00:00')
-    }
+    if (dateRange.from) return new Date(dateRange.from + 'T12:00:00')
     return new Date()
   }, [dateRange])
 
@@ -162,154 +212,200 @@ export default function DashboardClient() {
   )
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Panel de Control</h1>
-          <p className="text-sm text-muted">Producción, almacén, ventas y análisis</p>
-        </div>
-        <button
-          onClick={() => refresh(dateRange)}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-surface-card hover:bg-surface-soft border border-hairline text-body rounded-lg transition-colors w-fit cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Cargando...' : 'Actualizar'}
-        </button>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="Resumen"
+        title="Panel de control"
+        description="Producción, almacén, ventas y análisis en un solo lugar."
+        actions={
+          <Button
+            variant="secondary"
+            leadingIcon={
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            }
+            onClick={() => refresh(dateRange)}
+            disabled={loading}
+          >
+            {loading ? 'Cargando…' : 'Actualizar'}
+          </Button>
+        }
+      />
 
-      {/* Debt Alert */}
       {data && data.totalDebt > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 flex gap-3 items-start">
-          <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-warning">Deuda Pendiente</h4>
-            <p className="text-sm text-warning/95 mt-0.5">
-              Hay <strong>{formatCurrency(data.totalDebt)}</strong> en deudas por liquidar.
-              <a href="/deudas" className="ml-1 font-medium underline hover:text-warning">Ir a pagos</a>
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28 }}
+          className="mb-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+          <div className="text-sm">
+            <p className="font-medium text-warning">Deuda pendiente</p>
+            <p className="text-graphite">
+              Hay{' '}
+              <strong className="font-semibold text-ink">
+                {formatCurrency(data.totalDebt)}
+              </strong>{' '}
+              en deudas por liquidar.
+              <a
+                href="/deudas"
+                className="ts-link ml-1 text-primary"
+              >
+                Ir a pagos
+              </a>
             </p>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Quick Stats */}
       {data && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="bg-surface-card rounded-xl px-4 py-3 border border-hairline flex items-center gap-3">
-            <span className="text-xs text-muted font-semibold uppercase tracking-wider">Producido</span>
-            <span className="text-lg font-bold text-ink font-mono ml-auto">{totalProduction.toLocaleString()}</span>
-          </div>
-          <div className="bg-surface-card rounded-xl px-4 py-3 border border-hairline flex items-center gap-3">
-            <span className="text-xs text-muted font-semibold uppercase tracking-wider">Vendido</span>
-            <span className="text-lg font-bold text-ink font-mono ml-auto">{totalSalesQty.toLocaleString()} uds</span>
-          </div>
-          <div className="bg-surface-card rounded-xl px-4 py-3 border border-hairline flex items-center gap-3">
-            <span className="text-xs text-muted font-semibold uppercase tracking-wider">Ingresos</span>
-            <span className="text-lg font-bold text-accent-teal font-mono ml-auto">{formatCurrency(totalSalesAmount)}</span>
-          </div>
-          <div className="bg-surface-card rounded-xl px-4 py-3 border border-hairline flex items-center gap-3">
-            <span className="text-xs text-muted font-semibold uppercase tracking-wider">Deuda</span>
-            <span className={`text-lg font-bold font-mono ml-auto ${data.totalDebt > 0 ? 'text-warning' : 'text-success'}`}>
-              {formatCurrency(data.totalDebt)}
-            </span>
-          </div>
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Producido"
+            value={totalProduction.toLocaleString('es-ES')}
+            hint="Unidades en el período"
+            icon={Factory}
+            accent="primary"
+          />
+          <StatCard
+            label="Vendido"
+            value={`${totalSalesQty.toLocaleString('es-ES')} uds`}
+            hint="Unidades vendidas"
+            icon={ShoppingCart}
+            accent="success"
+          />
+          <StatCard
+            label="Ingresos"
+            value={formatCurrency(totalSalesAmount)}
+            hint="Total facturado"
+            icon={TrendingUp}
+            accent="primary"
+          />
+          <StatCard
+            label="Deuda"
+            value={formatCurrency(data.totalDebt)}
+            hint={data.totalDebt > 0 ? 'Por liquidar' : 'Al día'}
+            icon={CreditCard}
+            accent={data.totalDebt > 0 ? 'warning' : 'success'}
+          />
         </div>
       )}
 
-      {/* Date Range Filter */}
-      <DateRangeFilter value={dateRange} onChange={setDateRange} presets={['today', 'thisWeek', 'thisMonth', 'lastMonth', 'thisYear', 'all']} />
-
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <div className="flex items-center gap-3 text-muted">
-            <RefreshCw className="w-5 h-5 animate-spin" />
-            <span className="text-sm">Cargando datos...</span>
-          </div>
-        </div>
-      )}
+      <div className="mb-6">
+        <DateRangeFilter
+          value={dateRange}
+          onChange={setDateRange}
+          presets={['today', 'thisWeek', 'thisMonth', 'lastMonth', 'thisYear', 'all']}
+        />
+      </div>
 
       {error && (
-        <div className="bg-error/10 border border-error/30 rounded-xl p-4 text-error text-sm">
-          Error: {error}
+        <div className="mb-6 rounded-xl border border-error/30 bg-error-soft px-4 py-3 text-sm text-error">
+          {error}
+        </div>
+      )}
+
+      {loading && !data && (
+        <div className="flex items-center justify-center py-20 text-muted">
+          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+          <span className="text-sm">Cargando datos…</span>
         </div>
       )}
 
       {data && !loading && (
-        <>
-          {/* Calendar Section */}
-          <div className="bg-surface-card rounded-xl border border-hairline">
-            <button
-              onClick={() => setShowCalendar(!showCalendar)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left"
-            >
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="text-base font-bold text-ink">Calendario de Producción</h2>
-              </div>
-              {showCalendar ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
-            </button>
-            {showCalendar && (
-              <div className="px-5 pb-5">
-                <p className="text-xs text-muted mb-3">
-                  {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                  {' · '}Cada celda muestra la producción del día por producto
-                </p>
-                <ProductionCalendar
-                  products={data.products}
-                  dailyData={dailyData}
-                  currentMonth={currentMonth}
-                  dateRange={dateRange}
-                />
-              </div>
-            )}
+        <div>
+          <div className="mb-4 overflow-x-auto">
+            <Tabs
+              value={view}
+              onChange={(v) => setView(v as View)}
+              tabs={[
+                {
+                  id: 'calendar',
+                  label: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Calendario
+                    </span>
+                  ),
+                },
+                {
+                  id: 'table',
+                  label: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Table2 className="h-3.5 w-3.5" />
+                      Resumen
+                    </span>
+                  ),
+                },
+                {
+                  id: 'charts',
+                  label: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      Gráficos
+                    </span>
+                  ),
+                },
+              ]}
+            />
           </div>
 
-          {/* Table Section */}
-          <div className="bg-surface-card rounded-xl border border-hairline">
-            <button
-              onClick={() => setShowTable(!showTable)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left"
-            >
-              <div className="flex items-center gap-2">
-                <Table2 className="w-5 h-5 text-accent-teal" />
-                <h2 className="text-base font-bold text-ink">Resumen Diario</h2>
+          {view === 'calendar' && (
+            <div className="ts-card-pad">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="text-sm font-medium text-ink">
+                  Calendario de producción
+                </h2>
+                <span className="text-xs text-muted-soft">
+                  {currentMonth.toLocaleDateString('es-ES', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </span>
               </div>
-              {showTable ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
-            </button>
-            {showTable && (
-              <div className="px-5 pb-5">
-                <DailySummaryTable products={data.products} dailyData={dailyData} />
-              </div>
-            )}
-          </div>
+              <p className="mb-4 text-xs text-muted">
+                Cada celda muestra la producción del día por producto.
+              </p>
+              <ProductionCalendar
+                products={data.products}
+                dailyData={dailyData}
+                currentMonth={currentMonth}
+                dateRange={dateRange}
+              />
+            </div>
+          )}
 
-          {/* Charts Section */}
-          <div className="bg-surface-card rounded-xl border border-hairline">
-            <button
-              onClick={() => setShowCharts(!showCharts)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left"
-            >
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-accent-amber" />
-                <h2 className="text-base font-bold text-ink">Gráficos y Análisis</h2>
+          {view === 'table' && (
+            <div className="ts-card overflow-hidden">
+              <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
+                <h2 className="text-sm font-medium text-ink">Resumen diario</h2>
               </div>
-              {showCharts ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
-            </button>
-            {showCharts && (
-              <div className="px-5 pb-5">
-                <DashboardCharts
-                  products={data.products}
-                  dailyData={dailyData}
-                  productions={data.productions}
-                  transfers={data.transfers}
-                  sales={data.sales}
-                  totalDebt={data.totalDebt}
-                />
+              <DailySummaryTable
+                products={data.products}
+                dailyData={dailyData}
+              />
+            </div>
+          )}
+
+          {view === 'charts' && (
+            <div className="ts-card-pad">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-medium text-ink">
+                  Gráficos y análisis
+                </h2>
+                <ChevronDown className="h-4 w-4 -rotate-90 text-muted-soft" />
               </div>
-            )}
-          </div>
-        </>
+              <DashboardCharts
+                products={data.products}
+                dailyData={dailyData}
+                productions={data.productions}
+                transfers={data.transfers}
+                sales={data.sales}
+                totalDebt={data.totalDebt}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

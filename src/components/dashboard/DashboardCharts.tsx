@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend,
 } from 'recharts'
 import { formatCurrency, formatNumber } from '@/src/lib/format'
+import { useTheme } from '@/src/lib/theme'
 
 interface ProductInfo {
   id: string
@@ -60,16 +61,74 @@ interface DashboardChartsProps {
   totalDebt: number
 }
 
-const COLORS = ['#cc785c', '#5db8a6', '#e8a55a', '#c64545', '#5db872', '#d4a017']
+const COLOR_VARS = [
+  '--chart-1',
+  '--chart-2',
+  '--chart-3',
+  '--chart-4',
+  '--chart-5',
+  '--chart-6',
+] as const
+
+type ChartPalette = {
+  colors: string[]
+  tooltipBg: string
+  tooltipBorder: string
+  axis: string
+  grid: string
+}
+
+function readPalette(): ChartPalette {
+  if (typeof window === 'undefined') {
+    return {
+      colors: ['#3E6AE1', '#12B76A', '#F79009', '#F04438', '#5C5E62', '#8E8E8E'],
+      tooltipBg: '#ffffff',
+      tooltipBorder: '#e1e1e2',
+      axis: '#5c5e62',
+      grid: '#eeeeee',
+    }
+  }
+  const styles = getComputedStyle(document.documentElement)
+  const colors = COLOR_VARS.map((v) => styles.getPropertyValue(v).trim() || '#3E6AE1')
+  return {
+    colors,
+    tooltipBg: styles.getPropertyValue('--chart-tooltip-bg').trim() || '#ffffff',
+    tooltipBorder: styles.getPropertyValue('--chart-tooltip-border').trim() || '#e1e1e2',
+    axis: styles.getPropertyValue('--chart-axis').trim() || '#5c5e62',
+    grid: styles.getPropertyValue('--chart-grid').trim() || '#eeeeee',
+  }
+}
 
 export function DashboardCharts({ products, dailyData, productions, transfers, sales, totalDebt }: DashboardChartsProps) {
-  const chartTooltipStyle = {
-    backgroundColor: '#efe9de',
-    border: '1px solid #e6dfd8',
-    borderRadius: '8px',
-    fontSize: '12px',
-  }
+  const { resolved } = useTheme()
+  const [palette, setPalette] = useState<ChartPalette | null>(null)
 
+  useEffect(() => {
+    setPalette(readPalette())
+  }, [resolved])
+
+  const COLORS = palette?.colors ?? ['#3E6AE1', '#12B76A', '#F79009', '#F04438', '#5C5E62', '#8E8E8E']
+  const CHART_TOOLTIP_STYLE = palette
+    ? {
+        backgroundColor: palette.tooltipBg,
+        border: `1px solid ${palette.tooltipBorder}`,
+        borderRadius: 8,
+        fontSize: 12,
+        color: palette.axis,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+      }
+    : {
+        backgroundColor: '#ffffff',
+        border: '1px solid #e1e1e2',
+        borderRadius: 8,
+        fontSize: 12,
+        color: '#171a20',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+      }
+  const c1 = COLORS[0]
+  const c2 = COLORS[1]
+  const c3 = COLORS[2]
+  const c4 = COLORS[3]
   const dailyTotals = useMemo(() => {
     return Object.values(dailyData)
       .filter((d) => Object.keys(d.production).length > 0)
@@ -190,64 +249,64 @@ export function DashboardCharts({ products, dailyData, productions, transfers, s
 
   if (dailyTotals.length === 0) {
     return (
-      <div className="bg-surface-card rounded-xl border border-hairline p-8 text-center">
-        <p className="text-sm text-muted">No hay suficientes datos para generar gráficos</p>
+      <div className="ts-card-pad text-center text-sm text-muted">
+        No hay suficientes datos para generar gráficos
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-surface-card rounded-xl p-4 border border-hairline">
-          <p className="text-xs text-muted font-semibold uppercase tracking-wider">Total Producido</p>
-          <p className="text-xl font-bold text-ink mt-1 font-mono">{formatNumber(totalProduced)}</p>
-          <p className="text-xs text-muted mt-0.5">{formatCurrency(totalFactoryValue)} valor fábrica</p>
+        <div className="ts-card p-5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Total Producido</p>
+          <p className="mt-1 font-mono text-[1.5rem] font-medium text-ink leading-tight">{formatNumber(totalProduced)}</p>
+          <p className="mt-0.5 text-xs text-muted">{formatCurrency(totalFactoryValue)} valor fábrica</p>
         </div>
-        <div className="bg-surface-card rounded-xl p-4 border border-hairline">
-          <p className="text-xs text-muted font-semibold uppercase tracking-wider">Transferido a Almacén</p>
-          <p className="text-xl font-bold text-accent-teal mt-1 font-mono">{formatNumber(totalTransferred)}</p>
-          <p className="text-xs text-muted mt-0.5">{totalTransferred > 0 ? ((totalTransferred / totalProduced) * 100).toFixed(1) : 0}% de la producción</p>
+        <div className="ts-card p-5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Transferido a Almacén</p>
+          <p className="mt-1 font-mono text-[1.5rem] font-medium text-success leading-tight">{formatNumber(totalTransferred)}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {totalTransferred > 0 ? ((totalTransferred / totalProduced) * 100).toFixed(1) : 0}% de la producción
+          </p>
         </div>
-        <div className="bg-surface-card rounded-xl p-4 border border-hairline">
-          <p className="text-xs text-muted font-semibold uppercase tracking-wider">Vendido (uds)</p>
-          <p className="text-xl font-bold text-ink mt-1 font-mono">{formatNumber(totalSalesQty)}</p>
-          <p className="text-xs text-muted mt-0.5">{formatCurrency(totalSalesValue)} total</p>
+        <div className="ts-card p-5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Vendido (uds)</p>
+          <p className="mt-1 font-mono text-[1.5rem] font-medium text-ink leading-tight">{formatNumber(totalSalesQty)}</p>
+          <p className="mt-0.5 text-xs text-muted">{formatCurrency(totalSalesValue)} total</p>
         </div>
-        <div className="bg-surface-card rounded-xl p-4 border border-hairline">
-          <p className="text-xs text-muted font-semibold uppercase tracking-wider">Deuda Pendiente</p>
-          <p className={`text-xl font-bold mt-1 font-mono ${totalDebt > 0 ? 'text-warning' : 'text-success'}`}>
+        <div className="ts-card p-5">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted">Deuda Pendiente</p>
+          <p className={`mt-1 font-mono text-[1.5rem] font-medium leading-tight ${totalDebt > 0 ? 'text-warning' : 'text-success'}`}>
             {formatCurrency(totalDebt)}
           </p>
-          <p className="text-xs text-muted mt-0.5">
+          <p className="mt-0.5 text-xs text-muted">
             Promedio diario: {formatCurrency(avgDailySales)}
           </p>
         </div>
       </div>
 
-      {/* Row 1: Production trend + Product distribution */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Producción Diaria</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Producción Diaria</h3>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={dailyTotals}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis dataKey="date" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Line type="monotone" dataKey="produccion" stroke="#cc785c" name="Producido" strokeWidth={2} dot={{ r: 2 }} />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Line type="monotone" dataKey="produccion" stroke={c1} name="Producido" strokeWidth={2} dot={{ r: 2.5, fill: c1 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Producción por Producto</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Producción por Producto</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={productionByProduct} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis type="number" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" stroke="#6c6a64" tick={{ fontSize: 11 }} width={100} />
-              <Tooltip contentStyle={chartTooltipStyle} />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {productionByProduct.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -258,24 +317,23 @@ export function DashboardCharts({ products, dailyData, productions, transfers, s
         </div>
       </div>
 
-      {/* Row 2: Cumulative area + Sales pie */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Acumulado: Producción vs Ventas</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Acumulado: Producción vs Ventas</h3>
           <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={cumulativeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis dataKey="date" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Area type="monotone" dataKey="produccionAcumulada" stroke="#cc785c" fill="#cc785c" fillOpacity={0.15} name="Prod. Acumulada" />
-              <Area type="monotone" dataKey="ventasAcumuladas" stroke="#5db8a6" fill="#5db8a6" fillOpacity={0.15} name="Ventas Acumuladas" />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Area type="monotone" dataKey="produccionAcumulada" stroke={c1} fill={c1} fillOpacity={0.12} name="Prod. Acumulada" />
+              <Area type="monotone" dataKey="ventasAcumuladas" stroke={c2} fill={c2} fillOpacity={0.12} name="Ventas Acumuladas" />
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Ventas por Producto</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Ventas por Producto</h3>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
@@ -288,62 +346,60 @@ export function DashboardCharts({ products, dailyData, productions, transfers, s
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={chartTooltipStyle} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Row 3: Daily factory value + Province Sales */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Valor de Fábrica Diario</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Valor de Fábrica Diario</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={dailyTotals}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis dataKey="date" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
-              <Bar dataKey="valor" fill="#5db8a6" radius={[2, 2, 0, 0]} name="Valor fábrica" />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v) => formatCurrency(Number(v))} />
+              <Bar dataKey="valor" fill={c2} radius={[4, 4, 0, 0]} name="Valor fábrica" />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Ventas por Provincia</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Ventas por Provincia</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={salesByProvince}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis dataKey="name" stroke="#6c6a64" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
-              <YAxis stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => formatCurrency(Number(v))} />
-              <Bar dataKey="value" fill="#e8a55a" radius={[2, 2, 0, 0]} name="Ventas" />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={60} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} formatter={(v) => formatCurrency(Number(v))} />
+              <Bar dataKey="value" fill={c3} radius={[4, 4, 0, 0]} name="Ventas" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Row 4: Weekday averages + Transfer comparison */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Producción Promedio por Día de Semana</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Producción Promedio por Día de Semana</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={weekDayProduction}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis dataKey="name" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={chartTooltipStyle} />
-              <Bar dataKey="promedio" fill="#cc785c" radius={[2, 2, 0, 0]} name="Promedio diario" />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+              <Bar dataKey="promedio" fill={c1} radius={[4, 4, 0, 0]} name="Promedio diario" />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-          <h3 className="text-sm font-bold text-ink mb-4">Transferencias por Producto</h3>
+        <div className="ts-card p-5">
+          <h3 className="mb-4 text-sm font-medium text-ink">Transferencias por Producto</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={transfersByProduct} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6dfd8" />
-              <XAxis type="number" stroke="#6c6a64" tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" stroke="#6c6a64" tick={{ fontSize: 11 }} width={100} />
-              <Tooltip contentStyle={chartTooltipStyle} />
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={100} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
               <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                 {transfersByProduct.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -354,48 +410,26 @@ export function DashboardCharts({ products, dailyData, productions, transfers, s
         </div>
       </div>
 
-      {/* Row 5: Key stats table */}
-      <div className="bg-surface-card rounded-xl p-5 border border-hairline">
-        <h3 className="text-sm font-bold text-ink mb-4">Indicadores Clave</h3>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Promedio diario producción</p>
-            <p className="text-lg font-bold text-ink font-mono">{formatNumber(avgDailyProduction)} uds</p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Promedio diario ventas ($)</p>
-            <p className="text-lg font-bold text-ink font-mono">{formatCurrency(avgDailySales)}</p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Productos activos</p>
-            <p className="text-lg font-bold text-ink font-mono">{products.length}</p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Días con producción</p>
-            <p className="text-lg font-bold text-ink font-mono">{dailyTotals.length}</p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Valor promedio por día</p>
-            <p className="text-lg font-bold text-accent-teal font-mono">{formatCurrency(totalFactoryValue / Math.max(1, dailyTotals.length))}</p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">Precio promedio por unidad</p>
-            <p className="text-lg font-bold text-ink font-mono">
-              {totalSalesQty > 0 ? formatCurrency(totalSalesValue / totalSalesQty) : '—'}
-            </p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">% Transferido vs Producido</p>
-            <p className="text-lg font-bold text-ink font-mono">
-              {totalProduced > 0 ? ((totalTransferred / totalProduced) * 100).toFixed(1) : '0'}%
-            </p>
-          </div>
-          <div className="p-3 bg-surface-soft rounded-lg border border-hairline/50">
-            <p className="text-xs text-muted">% Vendido vs Transferido</p>
-            <p className="text-lg font-bold text-ink font-mono">
-              {totalTransferred > 0 ? ((totalSalesQty / totalTransferred) * 100).toFixed(1) : '0'}%
-            </p>
-          </div>
+      <div className="ts-card p-5">
+        <h3 className="mb-4 text-sm font-medium text-ink">Indicadores Clave</h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Promedio diario producción', value: `${formatNumber(avgDailyProduction)} uds` },
+            { label: 'Promedio diario ventas ($)', value: formatCurrency(avgDailySales), accent: 'text-primary' },
+            { label: 'Productos activos', value: formatNumber(products.length) },
+            { label: 'Días con producción', value: formatNumber(dailyTotals.length) },
+            { label: 'Valor promedio por día', value: formatCurrency(totalFactoryValue / Math.max(1, dailyTotals.length)), accent: 'text-success' },
+            { label: 'Precio promedio por unidad', value: totalSalesQty > 0 ? formatCurrency(totalSalesValue / totalSalesQty) : '—' },
+            { label: '% Transferido vs Producido', value: totalProduced > 0 ? `${((totalTransferred / totalProduced) * 100).toFixed(1)}%` : '0%' },
+            { label: '% Vendido vs Transferido', value: totalTransferred > 0 ? `${((totalSalesQty / totalTransferred) * 100).toFixed(1)}%` : '0%' },
+          ].map((m) => (
+            <div key={m.label} className="rounded-md bg-ash p-3">
+              <p className="text-xs text-muted">{m.label}</p>
+              <p className={`mt-0.5 font-mono text-lg font-medium ${m.accent ?? 'text-ink'}`}>
+                {m.value}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

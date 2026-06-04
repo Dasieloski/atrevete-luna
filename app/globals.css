@@ -1,66 +1,824 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --color-primary: #cc785c;
-  --color-primary-active: #a9583e;
-  --color-primary-disabled: #e6dfd8;
-  --color-ink: #141413;
-  --color-body: #3d3d3a;
-  --color-body-strong: #252523;
-  --color-muted: #6c6a64;
-  --color-muted-soft: #8e8b82;
-  --color-hairline: #e6dfd8;
-  --color-hairline-soft: #ebe6df;
-  --color-canvas: #faf9f5;
-  --color-surface-soft: #f5f0e8;
-  --color-surface-card: #efe9de;
-  --color-surface-cream-strong: #e8e0d2;
-  --color-surface-dark: #181715;
-  --color-surface-dark-elevated: #252320;
-  --color-surface-dark-soft: #1f1e1b;
+  /* ============ Brand & accent (Miro palette) ============ */
+  --color-primary: #1c1c1e;
+  --color-primary-hover: #2c2c34;
+  --color-primary-active: #050038;
   --color-on-primary: #ffffff;
-  --color-on-dark: #faf9f5;
-  --color-on-dark-soft: #a09d96;
-  --color-accent-teal: #5db8a6;
-  --color-accent-amber: #e8a55a;
-  --color-success: #5db872;
-  --color-warning: #d4a017;
-  --color-error: #c64545;
+
+  --color-canary: #ffd02f;
+  --color-canary-deep: #fcb900;
+  --color-yellow-light: #fff4c4;
+  --color-yellow-dark: #746019;
+
+  --color-blue: #4262ff;
+  --color-blue-450: #5b76fe;
+  --color-blue-pressed: #2a41b6;
+  --color-blue-soft: #f5f3ff;
+
+  --color-coral: #ff9999;
+  --color-coral-light: #ffc6c6;
+  --color-coral-dark: #600000;
+
+  --color-rose: #ffd8f4;
+  --color-rose-light: #fde0f0;
+  --color-rose-soft: #fde0f0;
+
+  --color-pink-soft: #fde0f0;
+
+  --color-teal: #0fbcb0;
+  --color-teal-light: #c3faf5;
+  --color-teal-dark: #187574;
+
+  --color-orange-light: #ffe6cd;
+
+  --color-red-soft: #fbd4d4;
+  --color-red-dark: #e3c5c5;
+
+  --color-success: #00b473;
+
+  /* ============ Surface ============ */
+  --color-canvas: #ffffff;
+  --color-surface: #f7f8fa;
+  --color-surface-soft: #fafbfc;
+  --color-surface-yellow: #fff8e0;
+  --color-surface-pricing-featured: #f5f3ff;
+
+  --color-hairline: #e0e2e8;
+  --color-hairline-soft: #eef0f3;
+  --color-hairline-strong: #c7cad5;
+
+  /* ============ Text ============ */
+  --color-ink-deep: #050038;
+  --color-ink: #1c1c1e;
+  --color-charcoal: #2c2c34;
+  --color-slate: #555a6a;
+  --color-steel: #6b6f7e;
+  --color-stone: #8e91a0;
+  --color-muted: #a5a8b5;
+
+  --color-on-dark: #ffffff;
+  --color-on-dark-muted: #a5a8b5;
+
+  --color-footer-bg: #1c1c1e;
+
+  /* Semantic tokens reused by the existing system */
+  --color-success-soft: #e6f7ee;
+  --color-warning: #fcb900;
+  --color-warning-soft: #fff8e0;
+  --color-error: #ff9999;
+  --color-error-soft: #fbd4d4;
+  --color-info: #4262ff;
+  --color-info-soft: #f5f3ff;
+
+  /* ============ Elevation (Miro levels) ============ */
+  --elev-0: none;
+  --elev-1: 0 1px 2px 0 rgba(5, 0, 56, 0.04);
+  --elev-2: 0 4px 12px 0 rgba(5, 0, 56, 0.06);
+  --elev-3: 0 12px 32px -4px rgba(5, 0, 56, 0.08);
+  --elev-4: 0 16px 48px -8px rgba(5, 0, 56, 0.12);
+
+  /* ============ Radii (Miro scale) ============ */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+  --radius-feature: 32px;
+  --radius-pill: 9999px;
+
+  /* ============ Spacing (4px base) ============ */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+  --space-xxxl: 40px;
+  --space-section-sm: 48px;
+  --space-section: 64px;
+  --space-section-lg: 96px;
+  --space-hero: 120px;
+
+  /* ============ Motion ============ */
+  --ease-miro: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* ============ Surfaces (frosted, overlay) ============ */
+  --bg-overlay: rgba(5, 0, 56, 0.4);
+  --bg-frost: rgba(255, 255, 255, 0.75);
+  --bg-frost-strong: rgba(255, 255, 255, 0.92);
+
+  /* ============ Chart palette (Miro-inspired) ============ */
+  --chart-1: #4262ff;   /* blue */
+  --chart-2: #0fbcb0;   /* teal */
+  --chart-3: #ffd02f;   /* canary */
+  --chart-4: #ff9999;   /* coral */
+  --chart-5: #1c1c1e;   /* primary */
+  --chart-6: #8e91a0;   /* stone */
+  --chart-7: #5b76fe;   /* blue-450 */
+  --chart-8: #187574;   /* teal-dark */
+  --chart-grid: #eef0f3;
+  --chart-axis: #6b6f7e;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e0e2e8;
+
+  /* ============ Map palette ============ */
+  --map-base: #f7f8fa;
+  --map-border: #ffffff;
+  --map-stroke-selected: #050038;
+  --map-hover: #4262ff;
+  --map-selected: #2a41b6;
+  --map-levels-cool: #c7d2fe, #93a4fd, #6f7eff, #4262ff, #2a41b6, #050038;
+
+  /* ============ Brand mark ============ */
+  --brand-bg: #1c1c1e;
+  --brand-fg: #ffd02f;
+  --brand-dot: #ffd02f;
+}
+
+.dark {
+  /* Brand & accent in dark — preserve the canary wordmark */
+  --color-primary: #ffffff;
+  --color-primary-hover: #d0d0d3;
+  --color-primary-active: #f5f5f7;
+  --color-on-primary: #0b0b0d;
+
+  --color-canary: #ffd02f;
+  --color-canary-deep: #fcb900;
+  --color-yellow-light: #2e2210;
+  --color-yellow-dark: #ffd02f;
+
+  --color-blue: #5b76fe;
+  --color-blue-450: #7a92fe;
+  --color-blue-pressed: #4262ff;
+  --color-blue-soft: #1a1a3a;
+
+  --color-coral: #ff9999;
+  --color-coral-light: #3a1818;
+  --color-coral-dark: #ff9999;
+
+  --color-rose: #3a1a2e;
+  --color-rose-light: #2a1828;
+  --color-rose-soft: #2a1828;
+
+  --color-pink-soft: #2a1828;
+
+  --color-teal: #0fbcb0;
+  --color-teal-light: #0a2e2c;
+  --color-teal-dark: #0fbcb0;
+
+  --color-orange-light: #2e2210;
+
+  --color-red-soft: #3a1816;
+  --color-red-dark: #ff9999;
+
+  --color-success: #2ecc71;
+
+  /* Surface in dark */
+  --color-canvas: #0b0b0d;
+  --color-surface: #131316;
+  --color-surface-soft: #18181b;
+  --color-surface-yellow: #2e2210;
+  --color-surface-pricing-featured: #1a1a3a;
+
+  --color-hairline: #2c2c2e;
+  --color-hairline-soft: #232325;
+  --color-hairline-strong: #3a3a3c;
+
+  /* Text in dark */
+  --color-ink-deep: #ffffff;
+  --color-ink: #f5f5f7;
+  --color-charcoal: #d0d0d3;
+  --color-slate: #b0b0b5;
+  --color-steel: #98989d;
+  --color-stone: #6e6e73;
+  --color-muted: #5c5c63;
+
+  --color-on-dark: #ffffff;
+  --color-on-dark-muted: #98989d;
+
+  --color-footer-bg: #050505;
+
+  --color-success-soft: #0f2a1c;
+  --color-warning: #f5a623;
+  --color-warning-soft: #2e2210;
+  --color-error: #ff9999;
+  --color-error-soft: #3a1816;
+  --color-info: #5b76fe;
+  --color-info-soft: #1a1a3a;
+
+  /* Chart palette in dark */
+  --chart-1: #7a92fe;
+  --chart-2: #2ecc71;
+  --chart-3: #ffd02f;
+  --chart-4: #ff9999;
+  --chart-5: #d0d0d3;
+  --chart-6: #6e6e73;
+  --chart-7: #93a4fd;
+  --chart-8: #2ecc71;
+  --chart-grid: #2c2c2e;
+  --chart-axis: #98989d;
+  --chart-tooltip-bg: #18181b;
+  --chart-tooltip-border: #3a3a3c;
+
+  /* Map palette in dark */
+  --map-base: #18181b;
+  --map-border: #0b0b0d;
+  --map-stroke-selected: #7a92fe;
+  --map-hover: #7a92fe;
+  --map-selected: #5b76fe;
+  --map-levels-cool: #1a1a3a, #2a2a5e, #3a3a8a, #5b76fe, #7a92fe, #93a4fd;
+
+  /* Surfaces */
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-frost: rgba(11, 11, 13, 0.75);
+  --bg-frost-strong: rgba(11, 11, 13, 0.92);
+
+  /* Brand mark in dark — invert */
+  --brand-bg: #ffd02f;
+  --brand-fg: #1c1c1e;
+  --brand-dot: #1c1c1e;
 }
 
 @theme inline {
+  /* Brand */
   --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
   --color-primary-active: var(--color-primary-active);
-  --color-primary-disabled: var(--color-primary-disabled);
+  --color-on-primary: var(--color-on-primary);
+
+  /* Canary yellow */
+  --color-canary: var(--color-canary);
+  --color-canary-deep: var(--color-canary-deep);
+  --color-yellow-light: var(--color-yellow-light);
+  --color-yellow-dark: var(--color-yellow-dark);
+
+  /* Blue */
+  --color-blue: var(--color-blue);
+  --color-blue-450: var(--color-blue-450);
+  --color-blue-pressed: var(--color-blue-pressed);
+  --color-blue-soft: var(--color-blue-soft);
+
+  /* Pastels */
+  --color-coral: var(--color-coral);
+  --color-coral-light: var(--color-coral-light);
+  --color-coral-dark: var(--color-coral-dark);
+  --color-rose: var(--color-rose);
+  --color-rose-light: var(--color-rose-light);
+  --color-teal: var(--color-teal);
+  --color-teal-light: var(--color-teal-light);
+  --color-teal-dark: var(--color-teal-dark);
+  --color-orange-light: var(--color-orange-light);
+  --color-red-soft: var(--color-red-soft);
+  --color-red-dark: var(--color-red-dark);
+  --color-surface-pricing-featured: var(--color-surface-pricing-featured);
+  --color-surface-yellow: var(--color-surface-yellow);
+  --color-pink-soft: var(--color-pink-soft);
+
+  /* Text */
   --color-ink: var(--color-ink);
-  --color-body: var(--color-body);
-  --color-body-strong: var(--color-body-strong);
+  --color-ink-deep: var(--color-ink-deep);
+  --color-charcoal: var(--color-charcoal);
+  --color-slate: var(--color-slate);
+  --color-steel: var(--color-steel);
+  --color-stone: var(--color-stone);
   --color-muted: var(--color-muted);
-  --color-muted-soft: var(--color-muted-soft);
+  --color-on-dark: var(--color-on-dark);
+  --color-on-dark-muted: var(--color-on-dark-muted);
+
+  /* Surfaces */
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-footer-bg: var(--color-footer-bg);
+
+  /* Borders */
   --color-hairline: var(--color-hairline);
   --color-hairline-soft: var(--color-hairline-soft);
-  --color-canvas: var(--color-canvas);
-  --color-surface-soft: var(--color-surface-soft);
-  --color-surface-card: var(--color-surface-card);
-  --color-surface-cream-strong: var(--color-surface-cream-strong);
-  --color-surface-dark: var(--color-surface-dark);
-  --color-surface-dark-elevated: var(--color-surface-dark-elevated);
-  --color-surface-dark-soft: var(--color-surface-dark-soft);
-  --color-on-primary: var(--color-on-primary);
-  --color-on-dark: var(--color-on-dark);
-  --color-on-dark-soft: var(--color-on-dark-soft);
-  --color-accent-teal: var(--color-accent-teal);
-  --color-accent-amber: var(--color-accent-amber);
+  --color-hairline-strong: var(--color-hairline-strong);
+
+  /* Semantic */
   --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
   --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
   --color-error: var(--color-error);
-  --font-display: "Cormorant Garamond", "EB Garamond", "Times New Roman", serif;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --color-error-soft: var(--color-error-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+
+  /* Body & display aliases used throughout existing code */
+  --color-body: var(--color-charcoal);
+  --color-body-strong: var(--color-ink);
+  --color-graphite: var(--color-charcoal);
+  --color-pewter: var(--color-slate);
+  --color-silver-fog: var(--color-stone);
+  --color-muted-soft: var(--color-stone);
+  --color-cloud: var(--color-muted);
+  --color-ash: var(--color-surface);
+  --color-ash-strong: var(--color-hairline-soft);
+  --color-electric: var(--color-blue);
+  --color-electric-hover: var(--color-blue-450);
+  --color-electric-active: var(--color-blue-pressed);
+  --color-electric-soft: var(--color-blue-soft);
+  --color-carbon: var(--color-ink);
+  --color-carbon-elevated: var(--color-charcoal);
+  --color-carbon-soft: var(--color-slate);
+  --color-accent-coral: var(--color-coral);
+  --color-accent-teal: var(--color-teal);
+  --color-accent-amber: var(--color-canary);
+  --color-primary-disabled: var(--color-muted);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-active: var(--color-primary-active);
+  --color-on-electric: var(--color-on-primary);
+
+  /* Radii */
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+  --radius-feature: var(--radius-feature);
+  --radius-pill: var(--radius-pill);
+
+  /* Fonts */
+  --font-display: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Font sizes (Miro hierarchy, fluid) */
+  --text-display: clamp(2.25rem, 1.5rem + 3vw, 3.75rem);
+  --text-h1: clamp(1.75rem, 1.3rem + 1.8vw, 3rem);
+  --text-h2: clamp(1.375rem, 1.1rem + 1.1vw, 2.25rem);
+  --text-h3: 1.75rem;
+  --text-h4: 1.375rem;
+  --text-h5: 1.125rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-tiny: 0.8125rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base reset & body                                                  */
+/* ------------------------------------------------------------------ */
+* {
+  border-color: var(--color-hairline);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   background: var(--color-canvas);
-  color: var(--color-body);
+  color: var(--color-charcoal);
   font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--dur-base) var(--ease-miro), color var(--dur-base) var(--ease-miro);
+}
+
+::selection {
+  background: var(--color-canary);
+  color: var(--color-primary);
+}
+
+.dark ::selection {
+  background: var(--color-canary);
+  color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Headings (Miro hierarchy)                                          */
+/* ------------------------------------------------------------------ */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-ink);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: var(--text-h1);
+  letter-spacing: -0.5px;
+  font-weight: 500;
+}
+h2 {
+  font-size: var(--text-h2);
+  letter-spacing: -0.25px;
+  font-weight: 500;
+}
+h3 {
+  font-size: var(--text-h3);
+  font-weight: 500;
+}
+h4 {
+  font-size: var(--text-h4);
+  font-weight: 500;
+}
+h5 {
+  font-size: var(--text-h5);
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------ */
+/* Focus rings                                                        */
+/* ------------------------------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbars                                                         */
+/* ------------------------------------------------------------------ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-hairline-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-canvas);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-stone);
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background: var(--color-hairline-strong);
+  border-color: var(--color-canvas);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: var(--color-steel);
+}
+
+/* ------------------------------------------------------------------ */
+/* Reusable components                                                */
+/* ------------------------------------------------------------------ */
+@layer components {
+  /* ============ Cards ============ */
+  .ts-card {
+    @apply rounded-xl border border-hairline-soft bg-canvas;
+  }
+  .ts-card-pad {
+    @apply rounded-xl border border-hairline-soft bg-canvas p-6;
+  }
+  .ts-card-feature {
+    @apply rounded-3xl border border-hairline-soft bg-canvas p-8;
+  }
+  .ts-card-yellow {
+    @apply rounded-3xl bg-canary p-8;
+    color: var(--color-primary);
+  }
+  .ts-card-coral {
+    @apply rounded-3xl p-8;
+    background-color: var(--color-coral-light);
+    color: var(--color-primary);
+  }
+  .ts-card-teal {
+    @apply rounded-3xl p-8;
+    background-color: var(--color-teal-light);
+    color: var(--color-teal-dark);
+  }
+  .ts-card-rose {
+    @apply rounded-3xl p-8;
+    background-color: var(--color-rose-light);
+    color: var(--color-primary);
+  }
+  .ts-card-soft {
+    @apply rounded-xl bg-surface;
+  }
+  .ts-card-flat {
+    @apply rounded-xl bg-surface;
+  }
+
+  /* ============ Sections / containers ============ */
+  .ts-section {
+    @apply mx-auto w-full max-w-[1280px] px-6 sm:px-8 lg:px-10;
+  }
+
+  /* ============ Buttons (pill) ============ */
+  .ts-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .ts-btn-primary:hover {
+    background: var(--color-primary-hover);
+  }
+  .ts-btn-primary:active {
+    background: var(--color-primary-active);
+  }
+  .ts-btn-primary:disabled {
+    background: var(--color-hairline);
+    color: var(--color-muted);
+    cursor: not-allowed;
+  }
+
+  .ts-btn-yellow {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    background: var(--color-canary);
+    color: var(--color-primary);
+  }
+  .ts-btn-yellow:hover {
+    background: var(--color-canary-deep);
+  }
+
+  .ts-btn-blue {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    background: var(--color-blue);
+    color: var(--color-on-primary);
+  }
+  .ts-btn-blue:hover {
+    background: var(--color-blue-pressed);
+  }
+
+  .ts-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill border bg-canvas px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    color: var(--color-ink);
+    border-color: var(--color-hairline-strong);
+  }
+  .ts-btn-secondary:hover {
+    background: var(--color-surface);
+  }
+
+  .ts-btn-on-dark {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    background: var(--color-on-dark);
+    color: var(--color-primary);
+  }
+  .ts-btn-on-dark:hover {
+    background: var(--color-stone);
+  }
+
+  .ts-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 32px;
+    color: var(--color-ink);
+  }
+  .ts-btn-ghost:hover {
+    background: var(--color-surface);
+  }
+
+  .ts-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-pill px-6 text-sm font-medium transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    min-height: 44px;
+    background: var(--color-coral);
+    color: var(--color-on-primary);
+  }
+  .ts-btn-danger:hover {
+    background: var(--color-coral-dark);
+    color: var(--color-on-primary);
+  }
+
+  .ts-btn-icon {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-pill text-ink transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)] hover:bg-surface;
+  }
+
+  .ts-btn-icon-circular {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-pill border bg-canvas text-ink transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)] hover:bg-surface;
+    border-color: var(--color-hairline);
+  }
+
+  /* ============ Inputs ============ */
+  .ts-input {
+    @apply h-11 w-full rounded-md border bg-canvas px-4 text-base text-ink placeholder:text-muted transition-colors duration-[var(--dur-base)] ease-[var(--ease-miro)];
+    border-color: var(--color-hairline-strong);
+  }
+  .ts-input::placeholder {
+    color: var(--color-muted);
+  }
+  .ts-input:hover {
+    border-color: var(--color-stone);
+  }
+  .ts-input:focus {
+    outline: none;
+    border-color: var(--color-blue);
+    box-shadow: 0 0 0 3px var(--color-blue-soft);
+  }
+  .ts-input:disabled {
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+
+  .ts-search-pill {
+    @apply h-10 w-full rounded-md border bg-surface px-4 text-sm text-steel transition-colors;
+    border-color: var(--color-hairline);
+  }
+
+  .ts-label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-wider;
+    color: var(--color-slate);
+  }
+
+  /* ============ Links ============ */
+  .ts-link {
+    @apply relative inline-flex items-center gap-1 text-sm font-medium transition-colors;
+    color: var(--color-blue);
+  }
+  .ts-link:hover {
+    color: var(--color-blue-pressed);
+  }
+
+  /* ============ Badges (all pill) ============ */
+  .ts-chip {
+    @apply inline-flex items-center gap-1 rounded-pill bg-surface px-2.5 py-1 text-xs font-medium;
+    color: var(--color-charcoal);
+  }
+  .ts-chip-yellow {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-canary);
+    color: var(--color-primary);
+  }
+  .ts-chip-tag-yellow {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-surface-yellow);
+    color: var(--color-yellow-dark);
+  }
+  .ts-chip-tag-purple {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-surface-pricing-featured);
+    color: var(--color-blue);
+  }
+  .ts-chip-tag-coral {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-coral-light);
+    color: var(--color-coral-dark);
+  }
+  .ts-chip-tag-teal {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-teal-light);
+    color: var(--color-teal-dark);
+  }
+  .ts-chip-success {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-success);
+    color: var(--color-on-primary);
+  }
+  .ts-chip-neutral {
+    @apply inline-flex items-center gap-1 rounded-pill bg-surface px-2.5 py-1 text-xs font-medium;
+    color: var(--color-charcoal);
+  }
+  .ts-chip-primary {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .ts-chip-warning {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
+  }
+  .ts-chip-error {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-error-soft);
+    color: var(--color-coral-dark);
+  }
+  .ts-chip-info {
+    @apply inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-xs font-semibold;
+    background: var(--color-info-soft);
+    color: var(--color-blue);
+  }
+
+  /* ============ Promo banner ============ */
+  .ts-promo-banner {
+    @apply flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  /* ============ CTA banner (dark, large radius) ============ */
+  .ts-cta-banner {
+    @apply rounded-feature px-12 py-20 text-center;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  /* ============ Footer ============ */
+  .ts-footer {
+    @apply px-8 py-16;
+    background: var(--color-footer-bg);
+    color: var(--color-on-dark);
+  }
+  .ts-footer-link {
+    @apply block py-1 text-sm transition-colors;
+    color: var(--color-on-dark-muted);
+  }
+  .ts-footer-link:hover {
+    color: var(--color-on-dark);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Background utility classes for soft semantic colors                */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  .bg-success-soft { background-color: var(--color-success-soft); }
+  .bg-warning-soft { background-color: var(--color-warning-soft); }
+  .bg-error-soft { background-color: var(--color-error-soft); }
+  .bg-info-soft { background-color: var(--color-info-soft); }
+  .bg-canary { background-color: var(--color-canary); }
+  .bg-canary-soft { background-color: var(--color-yellow-light); }
+  .bg-coral-soft { background-color: var(--color-coral-light); }
+  .bg-teal-soft { background-color: var(--color-teal-light); }
+  .bg-rose-soft { background-color: var(--color-rose-light); }
+  .bg-blue-soft { background-color: var(--color-blue-soft); }
+  .bg-surface { background-color: var(--color-surface); }
+  .bg-surface-soft { background-color: var(--color-surface-soft); }
+
+  .border-hairline-strong { border-color: var(--color-hairline-strong); }
+  .border-hairline { border-color: var(--color-hairline); }
+  .border-hairline-soft { border-color: var(--color-hairline-soft); }
+
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                             */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Recharts tweaks                                                    */
+/* ------------------------------------------------------------------ */
+.recharts-cartesian-axis-tick-value,
+.recharts-text {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  fill: var(--chart-axis);
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--chart-grid);
+}
+
+.recharts-tooltip-wrapper:focus {
+  outline: none;
+}
+
+.dark .recharts-cartesian-axis-line,
+.dark .recharts-cartesian-axis-tick-line {
+  stroke: var(--color-hairline-strong);
 }

@@ -1,8 +1,11 @@
 'use client'
 
-import { Calendar, X } from 'lucide-react'
+import { Calendar, X, ChevronDown } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { todayInputDate, monthStartInputDate } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
+import { cn } from '@/src/lib/utils'
 
 export interface DateRangeFilterProps {
   value: DateRange
@@ -11,7 +14,16 @@ export interface DateRangeFilterProps {
   className?: string
 }
 
-type PresetKey = 'today' | 'yesterday' | 'thisWeek' | 'lastWeek' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'lastYear' | 'all'
+type PresetKey =
+  | 'today'
+  | 'yesterday'
+  | 'thisWeek'
+  | 'lastWeek'
+  | 'thisMonth'
+  | 'lastMonth'
+  | 'thisYear'
+  | 'lastYear'
+  | 'all'
 
 const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
   today: {
@@ -51,7 +63,10 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       const monday = new Date(d.setDate(diff))
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
-      return { from: monday.toISOString().split('T')[0], to: sunday.toISOString().split('T')[0] }
+      return {
+        from: monday.toISOString().split('T')[0],
+        to: sunday.toISOString().split('T')[0],
+      }
     },
   },
   thisMonth: {
@@ -63,8 +78,12 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
     get: () => {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
-      const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]
+      const start = new Date(d.getFullYear(), d.getMonth(), 1)
+        .toISOString()
+        .split('T')[0]
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
+        .toISOString()
+        .split('T')[0]
       return { from: start, to: end }
     },
   },
@@ -88,64 +107,141 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
   },
 }
 
-const DEFAULT_PRESETS: PresetKey[] = ['today', 'thisWeek', 'thisMonth', 'lastMonth', 'thisYear', 'all']
+const DEFAULT_PRESETS: PresetKey[] = [
+  'today',
+  'thisWeek',
+  'thisMonth',
+  'lastMonth',
+  'thisYear',
+  'all',
+]
 
-export function DateRangeFilter({ value, onChange, presets = DEFAULT_PRESETS, className = '' }: DateRangeFilterProps) {
+export function DateRangeFilter({
+  value,
+  onChange,
+  presets = DEFAULT_PRESETS,
+  className = '',
+}: DateRangeFilterProps) {
   const isActive = (key: PresetKey) => {
     const p = PRESETS[key].get()
     return value.from === p.from && value.to === p.to
   }
 
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
   return (
-    <div className={`bg-surface-card border border-hairline rounded-xl p-4 ${className}`}>
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex items-center gap-2 text-sm text-muted shrink-0">
-          <Calendar className="w-4 h-4" />
-          <span className="font-medium text-ink">Período</span>
-        </div>
-        <div>
-          <label className="block text-xs text-muted mb-1">Desde</label>
-          <input
-            type="date"
-            value={value.from}
-            onChange={(e) => onChange({ ...value, from: e.target.value })}
-            className="px-3 py-1.5 border border-hairline rounded-lg bg-canvas text-body text-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-muted mb-1">Hasta</label>
-          <input
-            type="date"
-            value={value.to}
-            onChange={(e) => onChange({ ...value, to: e.target.value })}
-            className="px-3 py-1.5 border border-hairline rounded-lg bg-canvas text-body text-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {presets.map((key) => (
-            <button
-              key={key}
-              onClick={() => onChange(PRESETS[key].get())}
-              className={`px-2.5 py-1.5 text-xs rounded-lg transition-colors ${
-                isActive(key)
-                  ? 'bg-primary text-on-primary font-semibold'
-                  : 'bg-surface-soft text-body hover:bg-surface-cream-strong'
-              }`}
-            >
-              {PRESETS[key].label}
-            </button>
-          ))}
-        </div>
-        {(value.from || value.to) && (
-          <button
-            onClick={() => onChange({ from: '', to: '' })}
-            className="ml-auto flex items-center gap-1 px-2 py-1.5 text-xs text-muted hover:text-body"
-            title="Limpiar rango"
-          >
-            <X className="w-3.5 h-3.5" /> Limpiar
-          </button>
-        )}
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg border border-hairline bg-canvas px-3 py-2',
+        className
+      )}
+    >
+      <div className="flex items-center gap-1.5 pr-1 text-sm text-slate">
+        <Calendar className="h-3.5 w-3.5" />
+        <span className="hidden font-medium text-ink sm:inline">Período</span>
       </div>
+
+      <div className="flex items-center gap-1.5">
+        <input
+          type="date"
+          aria-label="Desde"
+          value={value.from}
+          onChange={(e) => onChange({ ...value, from: e.target.value })}
+          className={cn(
+            'h-8 rounded-md border border-hairline-strong bg-canvas px-2 text-xs text-ink',
+            'hover:border-stone focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue/20',
+            'transition-colors duration-[var(--dur-base)]'
+          )}
+        />
+        <span className="text-xs text-stone">→</span>
+        <input
+          type="date"
+          aria-label="Hasta"
+          value={value.to}
+          onChange={(e) => onChange({ ...value, to: e.target.value })}
+          className={cn(
+            'h-8 rounded-md border border-hairline-strong bg-canvas px-2 text-xs text-ink',
+            'hover:border-stone focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue/20',
+            'transition-colors duration-[var(--dur-base)]'
+          )}
+        />
+      </div>
+
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            'inline-flex h-8 items-center gap-1.5 rounded-pill border border-hairline-strong bg-canvas px-3 text-xs font-medium text-charcoal',
+            'hover:border-stone hover:text-ink',
+            'transition-colors duration-[var(--dur-base)]'
+          )}
+        >
+          Predeterminados
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 transition-transform duration-[var(--dur-base)]',
+              open && 'rotate-180'
+            )}
+          />
+        </button>
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+              className="absolute right-0 z-30 mt-1.5 w-44 overflow-hidden rounded-md border border-hairline-soft bg-canvas shadow-[0_16px_48px_-8px_rgba(5,0,56,0.12)]"
+            >
+              <div className="p-1">
+                {presets.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      onChange(PRESETS[key].get())
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-sm px-2.5 py-1.5 text-left text-xs transition-colors',
+                      isActive(key)
+                        ? 'bg-canary-soft font-semibold text-yellow-dark'
+                        : 'text-charcoal hover:bg-surface hover:text-ink'
+                    )}
+                  >
+                    {PRESETS[key].label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {(value.from || value.to) && (
+        <button
+          type="button"
+          onClick={() => onChange({ from: '', to: '' })}
+          className="ml-auto inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-slate hover:bg-surface hover:text-ink"
+          title="Limpiar rango"
+        >
+          <X className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Limpiar</span>
+        </button>
+      )}
     </div>
   )
 }

@@ -1,12 +1,28 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { ArrowRight, Package, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, History, AlertCircle, Search } from 'lucide-react'
+import {
+  ArrowRight,
+  Package,
+  Boxes,
+  Warehouse,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  History,
+  AlertCircle,
+  Search,
+} from 'lucide-react'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { DateRangeFilter, defaultRange } from '@/src/components/DateRangeFilter'
 import { StatCard } from '@/src/components/StatCard'
 import { Modal } from '@/src/components/Modal'
 import { EmptyState } from '@/src/components/EmptyState'
+import { PageHeader } from '@/src/components/ui/PageHeader'
+import { Button } from '@/src/components/ui/Button'
+import { Input } from '@/src/components/ui/Input'
+import { Badge } from '@/src/components/ui/Badge'
+import { Tabs } from '@/src/components/ui/Tabs'
+import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { formatDate, formatNumber, todayInputDate, daysBetween } from '@/src/lib/format'
 import { inRange, type DateRange } from '@/src/lib/business'
 
@@ -87,18 +103,21 @@ export default function AlmacenPage() {
   }
 
   function getUnits(productId: string, location: string): number {
-    return stock.find(s => s.productId === productId && s.location === location)?.quantity || 0
+    return (
+      stock.find((s) => s.productId === productId && s.location === location)
+        ?.quantity || 0
+    )
   }
 
   function getBoxes(productId: string, location: string): number {
-    const p = products.find(pr => pr.id === productId)
+    const p = products.find((pr) => pr.id === productId)
     if (!p) return 0
     return Math.floor(getUnits(productId, location) / (p.unitsPerBox || 100))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const product = products.find(p => p.id === form.productId)
+    const product = products.find((p) => p.id === form.productId)
     if (!product) return
 
     const payload = {
@@ -127,7 +146,12 @@ export default function AlmacenPage() {
   }
 
   function openModal() {
-    setForm({ productId: products[0]?.id || '', boxes: 1, date: todayInputDate(), notes: '' })
+    setForm({
+      productId: products[0]?.id || '',
+      boxes: 1,
+      date: todayInputDate(),
+      notes: '',
+    })
     setShowModal(true)
   }
 
@@ -137,17 +161,23 @@ export default function AlmacenPage() {
   }
 
   const stockByProduct = useMemo(() => {
-    return products.map(p => {
-      const factoryUnits = stock.find(s => s.productId === p.id && s.location === 'factory')?.quantity || 0
-      const mainUnits = stock.find(s => s.productId === p.id && s.location === 'main')?.quantity || 0
-      return {
-        ...p,
-        factoryBoxes: Math.floor(factoryUnits / (p.unitsPerBox || 100)),
-        factoryUnits,
-        mainBoxes: Math.floor(mainUnits / (p.unitsPerBox || 100)),
-        mainUnits,
-      }
-    }).filter(p => p.factoryUnits > 0 || p.mainUnits > 0)
+    return products
+      .map((p) => {
+        const factoryUnits =
+          stock.find((s) => s.productId === p.id && s.location === 'factory')
+            ?.quantity || 0
+        const mainUnits =
+          stock.find((s) => s.productId === p.id && s.location === 'main')
+            ?.quantity || 0
+        return {
+          ...p,
+          factoryBoxes: Math.floor(factoryUnits / (p.unitsPerBox || 100)),
+          factoryUnits,
+          mainBoxes: Math.floor(mainUnits / (p.unitsPerBox || 100)),
+          mainUnits,
+        }
+      })
+      .filter((p) => p.factoryUnits > 0 || p.mainUnits > 0)
   }, [products, stock])
 
   const movements: Movement[] = useMemo(() => {
@@ -175,14 +205,19 @@ export default function AlmacenPage() {
         notes: null,
       })
     }
-    return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    return list.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
   }, [transfers, sales])
 
   const filteredMovements = useMemo(() => {
     return movements
-      .filter(m => inRange(m.date, range))
-      .filter(m => typeFilter === 'all' || m.type === typeFilter)
-      .filter(m => !search || m.product.name.toLowerCase().includes(search.toLowerCase()))
+      .filter((m) => inRange(m.date, range))
+      .filter((m) => typeFilter === 'all' || m.type === typeFilter)
+      .filter(
+        (m) =>
+          !search || m.product.name.toLowerCase().includes(search.toLowerCase())
+      )
   }, [movements, range, typeFilter, search])
 
   const stats = useMemo(() => {
@@ -192,8 +227,14 @@ export default function AlmacenPage() {
       if (m.type === 'Entrada') entries += m.boxes
       else exits += m.boxes
     }
-    const currentMainBoxes = stockByProduct.reduce((s, p) => s + p.mainBoxes, 0)
-    const currentFactoryBoxes = stockByProduct.reduce((s, p) => s + p.factoryBoxes, 0)
+    const currentMainBoxes = stockByProduct.reduce(
+      (s, p) => s + p.mainBoxes,
+      0
+    )
+    const currentFactoryBoxes = stockByProduct.reduce(
+      (s, p) => s + p.factoryBoxes,
+      0
+    )
     const days = daysBetween(range.from, range.to)
     return {
       currentMainBoxes,
@@ -205,30 +246,30 @@ export default function AlmacenPage() {
     }
   }, [filteredMovements, stockByProduct, range])
 
-  const selectedProduct = products.find(p => p.id === form.productId)
-  const availableFactoryBoxes = selectedProduct ? getBoxes(selectedProduct.id, 'factory') : 0
+  const selectedProduct = products.find((p) => p.id === form.productId)
+  const availableFactoryBoxes = selectedProduct
+    ? getBoxes(selectedProduct.id, 'factory')
+    : 0
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Almacén</h1>
-          <p className="text-sm text-muted mt-1 max-w-2xl">
-            Centro de distribución. Aquí ves el stock listo para vender, mueves lotes desde la fábrica y revisas el historial de entradas y salidas.
-          </p>
-        </div>
-        <PermissionGuard module="almacen" action="create">
-          <button
-            onClick={openModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium shadow-sm"
-          >
-            <ArrowRight className="w-4 h-4" />
-            Transferir de fábrica
-          </button>
-        </PermissionGuard>
-      </header>
+      <PageHeader
+        eyebrow="Cadena de suministro · 2 / 3"
+        title="Almacén"
+        description="Centro de distribución. Aquí ves el stock listo para vender, mueves lotes desde la fábrica y revisas el historial de entradas y salidas."
+        actions={
+          <PermissionGuard module="almacen" action="create">
+            <Button
+              onClick={openModal}
+              leadingIcon={<ArrowRight className="h-4 w-4" />}
+            >
+              Transferir de fábrica
+            </Button>
+          </PermissionGuard>
+        }
+      />
 
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Stock en almacén"
           value={`${formatNumber(stats.currentMainBoxes)} cjs`}
@@ -248,7 +289,7 @@ export default function AlmacenPage() {
           value={`${formatNumber(stats.exits)} cjs`}
           hint="Por ventas a clientes"
           icon={ArrowUpFromLine}
-          accent="accent-amber"
+          accent="warning"
         />
         <StatCard
           label="Stock en fábrica"
@@ -258,11 +299,11 @@ export default function AlmacenPage() {
         />
       </section>
 
-      <section className="bg-surface-card rounded-xl border border-hairline overflow-hidden">
-        <div className="px-5 py-4 border-b border-hairline flex items-center gap-2">
-          <Package className="w-4 h-4 text-primary" />
-          <h2 className="text-sm font-bold text-ink">Stock por producto</h2>
-          <span className="text-xs text-muted ml-auto">Estado actual</span>
+      <section className="ts-card overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-hairline px-5 py-4 sm:px-6">
+          <Package className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-medium text-ink">Stock por producto</h2>
+          <span className="ml-auto text-xs text-muted-soft">Estado actual</span>
         </div>
         {stockByProduct.length === 0 ? (
           <EmptyState
@@ -272,82 +313,88 @@ export default function AlmacenPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-surface-soft">
-                <tr>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Producto</th>
-                  <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">En fábrica</th>
-                  <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">En almacén</th>
-                  <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline">
-                {stockByProduct.map(p => {
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Producto</TH>
+                  <TH className="text-right">En fábrica</TH>
+                  <TH className="text-right">En almacén</TH>
+                  <TH className="text-right">Total</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {stockByProduct.map((p) => {
                   const totalBoxes = p.factoryBoxes + p.mainBoxes
                   const totalUnits = p.factoryUnits + p.mainUnits
                   return (
-                    <tr key={p.id} className="hover:bg-surface-soft/50">
-                      <td className="px-5 py-3 text-sm font-semibold text-ink">{p.name}</td>
-                      <td className="px-5 py-3 text-sm text-body text-right tabular-nums">
+                    <TR key={p.id}>
+                      <TD className="font-medium text-ink">{p.name}</TD>
+                      <TD className="text-right font-mono">
                         <div>{formatNumber(p.factoryBoxes)} cjs</div>
-                        <div className="text-xs text-muted-soft">{formatNumber(p.factoryUnits)} uds</div>
-                      </td>
-                      <td className="px-5 py-3 text-sm text-right tabular-nums">
-                        <div className="font-semibold text-primary">{formatNumber(p.mainBoxes)} cjs</div>
-                        <div className="text-xs text-muted-soft">{formatNumber(p.mainUnits)} uds</div>
-                      </td>
-                      <td className="px-5 py-3 text-sm text-ink font-semibold text-right tabular-nums">
+                        <div className="text-xs text-muted-soft">
+                          {formatNumber(p.factoryUnits)} uds
+                        </div>
+                      </TD>
+                      <TD className="text-right font-mono">
+                        <div className="font-medium text-primary">
+                          {formatNumber(p.mainBoxes)} cjs
+                        </div>
+                        <div className="text-xs text-muted-soft">
+                          {formatNumber(p.mainUnits)} uds
+                        </div>
+                      </TD>
+                      <TD className="text-right font-mono font-medium text-ink">
                         <div>{formatNumber(totalBoxes)} cjs</div>
-                        <div className="text-xs text-muted font-normal">{formatNumber(totalUnits)} uds</div>
-                      </td>
-                    </tr>
+                        <div className="text-xs font-normal text-muted">
+                          {formatNumber(totalUnits)} uds
+                        </div>
+                      </TD>
+                    </TR>
                   )
                 })}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </section>
 
-      <section className="bg-surface-card rounded-xl border border-hairline overflow-hidden">
-        <div className="px-5 py-4 border-b border-hairline flex flex-wrap items-center gap-3">
+      <section className="ts-card overflow-hidden">
+        <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-muted" />
-            <h2 className="text-sm font-bold text-ink">Historial de movimientos</h2>
+            <History className="h-4 w-4 text-muted" />
+            <h2 className="text-sm font-medium text-ink">
+              Historial de movimientos
+            </h2>
           </div>
-          <div className="flex-1 min-w-[200px] relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Input
               type="text"
-              placeholder="Buscar producto..."
+              placeholder="Buscar producto…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 border border-hairline rounded-lg bg-canvas text-body text-sm focus:outline-none focus:border-primary"
+              leadingIcon={<Search className="h-3.5 w-3.5" />}
+              className="w-44 sm:w-56"
             />
-          </div>
-          <div className="flex gap-1 bg-surface-soft rounded-lg p-1 border border-hairline">
-            {([
-              { key: 'all', label: 'Todos' },
-              { key: 'Entrada', label: 'Entradas' },
-              { key: 'Salida', label: 'Salidas' },
-            ] as const).map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => setTypeFilter(opt.key)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  typeFilter === opt.key
-                    ? 'bg-surface-card text-ink shadow-sm'
-                    : 'text-muted hover:text-body'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            <Tabs
+              size="sm"
+              variant="pill"
+              value={typeFilter}
+              onChange={(v) => setTypeFilter(v as 'all' | 'Entrada' | 'Salida')}
+              tabs={[
+                { id: 'all', label: 'Todos' },
+                { id: 'Entrada', label: 'Entradas' },
+                { id: 'Salida', label: 'Salidas' },
+              ]}
+            />
           </div>
         </div>
 
-        <div className="px-5 pt-3 pb-2">
-          <DateRangeFilter value={range} onChange={setRange} className="!bg-canvas border-0 p-0" />
+        <div className="px-5 py-3 sm:px-6">
+          <DateRangeFilter
+            value={range}
+            onChange={setRange}
+            className="border-0 bg-transparent p-0"
+          />
         </div>
 
         {filteredMovements.length === 0 ? (
@@ -358,39 +405,45 @@ export default function AlmacenPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-surface-soft">
-                <tr>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Fecha</th>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Tipo</th>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Producto</th>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Origen</th>
-                  <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Cajas</th>
-                  <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Notas</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline">
-                {filteredMovements.map(m => (
-                  <tr key={m.id} className="hover:bg-surface-soft/50">
-                    <td className="px-5 py-3 text-sm text-body whitespace-nowrap">{formatDate(m.date)}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        m.type === 'Entrada'
-                          ? 'bg-success/15 text-success'
-                          : 'bg-error/15 text-error'
-                      }`}>
-                        {m.type === 'Entrada' ? <ArrowDownToLine className="w-3 h-3" /> : <ArrowUpFromLine className="w-3 h-3" />}
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Fecha</TH>
+                  <TH>Tipo</TH>
+                  <TH>Producto</TH>
+                  <TH>Origen</TH>
+                  <TH className="text-right">Cajas</TH>
+                  <TH>Notas</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {filteredMovements.map((m) => (
+                  <TR key={m.id}>
+                    <TD className="whitespace-nowrap font-mono text-[13px]">
+                      {formatDate(m.date)}
+                    </TD>
+                    <TD>
+                      <Badge tone={m.type === 'Entrada' ? 'success' : 'error'}>
+                        {m.type === 'Entrada' ? (
+                          <ArrowDownToLine className="h-3 w-3" />
+                        ) : (
+                          <ArrowUpFromLine className="h-3 w-3" />
+                        )}
                         {m.type}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm font-semibold text-ink">{m.product.name}</td>
-                    <td className="px-5 py-3 text-sm text-muted">{m.source}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-ink text-right tabular-nums">{formatNumber(m.boxes)}</td>
-                    <td className="px-5 py-3 text-sm text-muted max-w-[200px] truncate">{m.notes || '—'}</td>
-                  </tr>
+                      </Badge>
+                    </TD>
+                    <TD className="font-medium text-ink">{m.product.name}</TD>
+                    <TD className="text-muted">{m.source}</TD>
+                    <TD className="text-right font-mono font-medium text-ink">
+                      {formatNumber(m.boxes)}
+                    </TD>
+                    <TD className="max-w-[200px] truncate text-muted">
+                      {m.notes || '—'}
+                    </TD>
+                  </TR>
                 ))}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         )}
       </section>
@@ -402,32 +455,33 @@ export default function AlmacenPage() {
           onClose={closeModal}
           size="md"
           footer={
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeModal} className="px-4 py-2 bg-surface-soft text-body rounded-lg hover:bg-surface-cream-strong font-medium">
+            <>
+              <Button variant="ghost" onClick={closeModal}>
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
                 form="transfer-form"
                 disabled={!selectedProduct || availableFactoryBoxes === 0}
-                className="px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Transferir
-              </button>
-            </div>
+              </Button>
+            </>
           }
         >
           <form id="transfer-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-body-strong mb-1.5">Producto</label>
+              <label className="ts-label">Producto</label>
               <select
                 value={form.productId}
-                onChange={(e) => setForm({ ...form, productId: e.target.value, boxes: 1 })}
+                onChange={(e) =>
+                  setForm({ ...form, productId: e.target.value, boxes: 1 })
+                }
                 required
-                className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                className="ts-input"
               >
                 <option value="">Selecciona un producto</option>
-                {products.map(p => (
+                {products.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} · {getBoxes(p.id, 'factory')} cjs en fábrica
                   </option>
@@ -436,23 +490,35 @@ export default function AlmacenPage() {
             </div>
 
             {selectedProduct && (
-              <div className="bg-surface-soft rounded-lg p-3 text-sm space-y-1.5">
+              <div className="space-y-1.5 rounded-md bg-ash px-3 py-2.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted">Stock en fábrica:</span>
-                  <span className={`font-semibold ${availableFactoryBoxes > 0 ? 'text-ink' : 'text-error'}`}>
-                    {formatNumber(availableFactoryBoxes)} cjs · {formatNumber(selectedProduct.unitsPerBox * availableFactoryBoxes)} uds
+                  <span
+                    className={
+                      availableFactoryBoxes > 0
+                        ? 'font-medium text-ink'
+                        : 'font-medium text-error'
+                    }
+                  >
+                    {formatNumber(availableFactoryBoxes)} cjs ·{' '}
+                    {formatNumber(
+                      selectedProduct.unitsPerBox * availableFactoryBoxes
+                    )}{' '}
+                    uds
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted">Stock en almacén:</span>
-                  <span className="font-semibold text-ink">
+                  <span className="font-medium text-ink">
                     {formatNumber(getBoxes(selectedProduct.id, 'main'))} cjs
                   </span>
                 </div>
                 {availableFactoryBoxes === 0 && (
-                  <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-hairline text-xs text-error">
-                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                    <span>No hay stock en fábrica. Registra producción primero.</span>
+                  <div className="mt-2 flex items-start gap-1.5 border-t border-hairline pt-2 text-xs text-error">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      No hay stock en fábrica. Registra producción primero.
+                    </span>
                   </div>
                 )}
               </div>
@@ -460,41 +526,45 @@ export default function AlmacenPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">Cajas a transferir</label>
+                <label className="ts-label">Cajas a transferir</label>
                 <input
                   type="number"
                   value={form.boxes}
-                  onChange={(e) => setForm({ ...form, boxes: parseInt(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setForm({ ...form, boxes: parseInt(e.target.value) || 0 })
+                  }
                   required
                   min="1"
                   max={availableFactoryBoxes || undefined}
                   disabled={!selectedProduct}
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body disabled:opacity-50"
+                  className="ts-input"
                 />
                 {selectedProduct && availableFactoryBoxes > 0 && (
-                  <p className="text-xs text-muted mt-1">Máx: {formatNumber(availableFactoryBoxes)} cjs</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Máx: {formatNumber(availableFactoryBoxes)} cjs
+                  </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">Fecha</label>
+                <label className="ts-label">Fecha</label>
                 <input
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
                   required
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                  className="ts-input"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-body-strong mb-1.5">Notas (opcional)</label>
+              <label className="ts-label">Notas (opcional)</label>
               <input
                 type="text"
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="Motivo, lote de producción..."
-                className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                placeholder="Motivo, lote de producción…"
+                className="ts-input"
               />
             </div>
           </form>

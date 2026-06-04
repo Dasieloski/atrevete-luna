@@ -2,7 +2,27 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { UserCog, Plus, Edit2, Trash2, X, Loader2, Search, Shield, AlertCircle } from 'lucide-react'
+import {
+  UserCog,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Loader2,
+  Search,
+  Shield,
+  AlertCircle,
+  Lock,
+  Mail,
+  User as UserIcon,
+} from 'lucide-react'
+import { PageHeader } from '@/src/components/ui/PageHeader'
+import { Button } from '@/src/components/ui/Button'
+import { Input } from '@/src/components/ui/Input'
+import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
+import { Badge } from '@/src/components/ui/Badge'
+import { Modal } from '@/src/components/Modal'
+import { EmptyState } from '@/src/components/EmptyState'
 
 interface Role {
   id: string
@@ -61,12 +81,10 @@ export default function UsuariosPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       void fetchData()
     }
   }, [authLoading, user])
 
-  // Filtrar usuarios según búsqueda y rol
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchSearch =
@@ -80,16 +98,18 @@ export default function UsuariosPage() {
 
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-6 h-6 animate-spin text-muted" />
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-muted" />
       </div>
     )
   }
 
   if (!user?.role.isSuperAdmin) {
     return (
-      <div className="bg-surface-card rounded-xl p-8 border border-hairline max-w-md">
-        <h2 className="text-lg font-semibold text-ink mb-2">Acceso restringido</h2>
+      <div className="ts-card-pad max-w-md">
+        <h2 className="mb-2 text-base font-medium text-ink">
+          Acceso restringido
+        </h2>
         <p className="text-sm text-muted">
           Solo el superadministrador puede gestionar usuarios.
         </p>
@@ -99,7 +119,13 @@ export default function UsuariosPage() {
 
   const openNew = () => {
     setEditingUser(null)
-    setForm({ email: '', password: '', name: '', roleId: roles.find((r) => !r.isSuperAdmin)?.id || roles[0]?.id || '' })
+    setForm({
+      email: '',
+      password: '',
+      name: '',
+      roleId:
+        roles.find((r) => !r.isSuperAdmin)?.id || roles[0]?.id || '',
+    })
     setError(null)
     setShowModal(true)
   }
@@ -175,41 +201,33 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
-            <UserCog className="w-6 h-6 text-primary" />
-            Usuarios
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Crea usuarios y asígnales un rol para controlar sus permisos.
-          </p>
-        </div>
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo usuario
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Administración"
+        title="Usuarios"
+        description="Crea usuarios y asígnales un rol para controlar sus permisos."
+        actions={
+          <Button
+            onClick={openNew}
+            leadingIcon={<Plus className="h-4 w-4" />}
+          >
+            Nuevo usuario
+          </Button>
+        }
+      />
 
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o email..."
-            className="w-full pl-9 pr-3 py-2.5 border border-hairline rounded-lg bg-surface-card text-body text-sm"
-          />
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre o email…"
+          leadingIcon={<Search className="h-3.5 w-3.5" />}
+          className="max-w-md"
+        />
         <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-3 py-2.5 border border-hairline rounded-lg bg-surface-card text-body text-sm"
+          className="h-10 rounded-md border border-hairline-strong bg-canvas px-3 text-sm text-ink hover:border-pewter focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
         >
           <option value="">Todos los roles</option>
           {roles.map((r) => (
@@ -221,212 +239,201 @@ export default function UsuariosPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-6 h-6 animate-spin text-muted" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted" />
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-surface-card rounded-xl p-12 border border-hairline text-center">
-          <UserCog className="w-10 h-10 text-muted mx-auto mb-3" />
-          <p className="text-sm text-muted">
-            {users.length === 0
-              ? 'No hay usuarios registrados todavía.'
-              : 'No se encontraron usuarios con los filtros aplicados.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={UserCog}
+          title={
+            users.length === 0
+              ? 'No hay usuarios registrados'
+              : 'Sin coincidencias'
+          }
+          description={
+            users.length === 0
+              ? 'Crea el primer usuario con el botón superior.'
+              : 'No se encontraron usuarios con los filtros aplicados.'
+          }
+        />
       ) : (
-        <div className="bg-surface-card rounded-xl border border-hairline overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-surface-soft">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Nombre</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Email</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Rol</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="border-t border-hairline hover:bg-surface-soft/50">
-                  <td className="px-4 py-3 text-body font-medium">
-                    <div className="flex items-center gap-2">
-                      {u.name}
-                      {u.id === user.id && (
-                        <span className="text-2xs px-1.5 py-0.5 rounded bg-surface-soft text-muted font-medium">
-                          TÚ
-                        </span>
+        <section className="ts-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Nombre</TH>
+                  <TH>Email</TH>
+                  <TH>Rol</TH>
+                  <TH className="text-right">Acciones</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {filteredUsers.map((u) => (
+                  <TR key={u.id}>
+                    <TD>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-ink">{u.name}</span>
+                        {u.id === user.id && (
+                          <Badge tone="neutral" className="shrink-0">
+                            TÚ
+                          </Badge>
+                        )}
+                      </div>
+                    </TD>
+                    <TD className="text-muted">{u.email}</TD>
+                    <TD>
+                      {u.role.isSuperAdmin ? (
+                        <Badge tone="primary">
+                          <Shield className="h-3 w-3" />
+                          {u.role.name}
+                        </Badge>
+                      ) : (
+                        <Badge tone="neutral">{u.role.name}</Badge>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded ${
-                        u.role.isSuperAdmin
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-surface-soft text-body'
-                      }`}
-                    >
-                      {u.role.isSuperAdmin && <Shield className="w-3 h-3" />}
-                      {u.role.name}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        onClick={() => openEdit(u)}
-                        className="p-1.5 hover:bg-surface-soft rounded"
-                        title="Editar"
-                      >
-                        <Edit2 className="w-4 h-4 text-muted" />
-                      </button>
-                      {u.id !== user.id && (
+                    </TD>
+                    <TD className="text-right">
+                      <div className="inline-flex items-center gap-1">
                         <button
-                          onClick={() => setDeleteId(u.id)}
-                          className="p-1.5 hover:bg-error/10 rounded"
-                          title="Eliminar"
+                          onClick={() => openEdit(u)}
+                          className="ts-btn-icon"
+                          title="Editar"
                         >
-                          <Trash2 className="w-4 h-4 text-error" />
+                          <Edit2 className="h-4 w-4" />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                        {u.id !== user.id && (
+                          <button
+                            onClick={() => setDeleteId(u.id)}
+                            className="ts-btn-icon hover:bg-error-soft hover:text-error"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </div>
+          <div className="border-t border-hairline px-5 py-2.5 text-xs text-muted-soft sm:px-6">
+            {filteredUsers.length} de {users.length} usuario
+            {users.length !== 1 ? 's' : ''}
+          </div>
+        </section>
+      )}
+
+      <Modal
+        open={showModal}
+        title={editingUser ? 'Editar usuario' : 'Nuevo usuario'}
+        onClose={() => setShowModal(false)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={save} loading={saving}>
+              {editingUser ? 'Guardar cambios' : 'Crear usuario'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {editingUser?.id === user.id && (
+            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-soft px-3 py-2.5 text-sm text-warning">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Estás editando tu propio usuario. Ten cuidado al cambiar tu rol.
+              </span>
+            </div>
+          )}
+
+          <div>
+            <label className="ts-label">Nombre completo *</label>
+            <Input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ej: Juan Pérez"
+              leadingIcon={<UserIcon className="h-4 w-4" />}
+            />
+          </div>
+          <div>
+            <label className="ts-label">Email *</label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="usuario@ejemplo.com"
+              leadingIcon={<Mail className="h-4 w-4" />}
+            />
+          </div>
+          <div>
+            <label className="ts-label">
+              Contraseña{' '}
+              {editingUser && (
+                <span className="text-muted-soft normal-case tracking-normal">
+                  (dejar vacía para no cambiar)
+                </span>
+              )}{' '}
+              *
+            </label>
+            <Input
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Mínimo 8 caracteres"
+              leadingIcon={<Lock className="h-4 w-4" />}
+            />
+          </div>
+          <div>
+            <label className="ts-label">Rol *</label>
+            <select
+              value={form.roleId}
+              onChange={(e) => setForm({ ...form, roleId: e.target.value })}
+              className="ts-input"
+            >
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} {r.isSuperAdmin && '— Acceso total'}
+                </option>
               ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-2.5 bg-surface-soft border-t border-hairline text-xs text-muted">
-            {filteredUsers.length} de {users.length} usuario{users.length !== 1 ? 's' : ''}
+            </select>
           </div>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-md bg-error-soft px-3 py-2 text-sm text-error">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
-      )}
+      </Modal>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-card rounded-xl border border-hairline w-full max-w-md">
-            <div className="flex items-center justify-between p-5 border-b border-hairline">
-              <h2 className="text-lg font-semibold text-ink">
-                {editingUser ? 'Editar usuario' : 'Nuevo usuario'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 hover:bg-surface-soft rounded-lg"
-              >
-                <X className="w-5 h-5 text-muted" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4">
-              {editingUser?.id === user.id && (
-                <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg text-sm text-warning">
-                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>Estás editando tu propio usuario. Ten cuidado al cambiar tu rol.</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Nombre completo *
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
-                  placeholder="Ej: Juan Pérez"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
-                  placeholder="usuario@ejemplo.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Contraseña {editingUser && <span className="text-muted font-normal">(dejar vacía para no cambiar)</span>} *
-                </label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
-                  placeholder="Mínimo 8 caracteres"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Rol *
-                </label>
-                <select
-                  value={form.roleId}
-                  onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
-                >
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} {r.isSuperAdmin && '— Acceso total'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {error && (
-                <div className="text-sm text-error bg-error/10 px-3 py-2 rounded-lg">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 p-5 border-t border-hairline bg-surface-soft">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2.5 border border-hairline rounded-lg text-body hover:bg-surface-card"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active disabled:opacity-50 font-medium"
-              >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingUser ? 'Guardar cambios' : 'Crear usuario'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {deleteId && (
-        <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-card rounded-xl border border-hairline w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-ink mb-2">¿Eliminar este usuario?</h2>
-            <p className="text-sm text-muted mb-5">
-              Esta acción no se puede deshacer. El usuario no podrá volver a iniciar sesión.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="px-4 py-2.5 border border-hairline rounded-lg text-body hover:bg-surface-soft"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => remove(deleteId)}
-                className="px-4 py-2.5 bg-error text-on-primary rounded-lg hover:opacity-90 font-medium"
-              >
-                Eliminar usuario
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={deleteId !== null}
+        title="¿Eliminar este usuario?"
+        subtitle="Esta acción no se puede deshacer. El usuario no podrá volver a iniciar sesión."
+        onClose={() => setDeleteId(null)}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => deleteId && remove(deleteId)}
+            >
+              Eliminar usuario
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted">
+          Confirma que quieres eliminar al usuario seleccionado.
+        </p>
+      </Modal>
     </div>
   )
 }

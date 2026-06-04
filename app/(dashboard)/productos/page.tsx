@@ -6,6 +6,11 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 import { StatCard } from '@/src/components/StatCard'
 import { Modal } from '@/src/components/Modal'
 import { EmptyState } from '@/src/components/EmptyState'
+import { PageHeader } from '@/src/components/ui/PageHeader'
+import { Button } from '@/src/components/ui/Button'
+import { Input } from '@/src/components/ui/Input'
+import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
+import { cn } from '@/src/lib/utils'
 import { formatNumber, formatCurrency } from '@/src/lib/format'
 
 interface Product {
@@ -31,7 +36,9 @@ export default function ProductosPage() {
     unitsPerBox: 100,
   })
 
-  useEffect(() => { fetchProducts() }, [])
+  useEffect(() => {
+    fetchProducts()
+  }, [])
 
   async function fetchProducts() {
     const res = await fetch('/api/products')
@@ -75,7 +82,13 @@ export default function ProductosPage() {
       })
     } else {
       setEditing(null)
-      setForm({ name: '', description: '', priceWarehouse: 0.49, priceDistribution: 0.54, unitsPerBox: 100 })
+      setForm({
+        name: '',
+        description: '',
+        priceWarehouse: 0.49,
+        priceDistribution: 0.54,
+        unitsPerBox: 100,
+      })
     }
     setShowModal(true)
   }
@@ -83,48 +96,73 @@ export default function ProductosPage() {
   function closeModal() {
     setShowModal(false)
     setEditing(null)
-    setForm({ name: '', description: '', priceWarehouse: 0.49, priceDistribution: 0.54, unitsPerBox: 100 })
+    setForm({
+      name: '',
+      description: '',
+      priceWarehouse: 0.49,
+      priceDistribution: 0.54,
+      unitsPerBox: 100,
+    })
   }
 
   const filteredProducts = useMemo(() => {
     return products
-      .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+      .filter(
+        (p) =>
+          !search || p.name.toLowerCase().includes(search.toLowerCase())
+      )
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [products, search])
 
-  const stats = useMemo(() => ({
-    total: products.length,
-    active: products.filter(p => p.isActive).length,
-    avgPrice: products.length > 0
-      ? products.reduce((s, p) => s + p.priceWarehouse, 0) / products.length
-      : 0,
-  }), [products])
+  const stats = useMemo(
+    () => ({
+      total: products.length,
+      active: products.filter((p) => p.isActive).length,
+      avgPrice:
+        products.length > 0
+          ? products.reduce((s, p) => s + p.priceWarehouse, 0) /
+            products.length
+          : 0,
+    }),
+    [products]
+  )
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Productos</h1>
-          <p className="text-sm text-muted mt-1 max-w-2xl">
-            Catálogo de productos. Define los precios de cada producto y cuántas unidades entran en cada caja.
-            Los productos activos aparecen en las secciones de producción, almacén y ventas.
-          </p>
-        </div>
-        <PermissionGuard module="productos" action="create">
-          <button
-            onClick={() => openModal()}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo producto
-          </button>
-        </PermissionGuard>
-      </header>
+      <PageHeader
+        eyebrow="Catálogo"
+        title="Productos"
+        description="Catálogo de productos. Define los precios de cada producto y cuántas unidades entran en cada caja. Los productos activos aparecen en las secciones de producción, almacén y ventas."
+        actions={
+          <PermissionGuard module="productos" action="create">
+            <Button
+              onClick={() => openModal()}
+              leadingIcon={<Plus className="h-4 w-4" />}
+            >
+              Nuevo producto
+            </Button>
+          </PermissionGuard>
+        }
+      />
 
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label="Productos activos" value={formatNumber(stats.active)} icon={Package} accent="primary" />
-        <StatCard label="Total productos" value={formatNumber(stats.total)} icon={Package} />
-        <StatCard label="Precio almacén promedio" value={formatCurrency(stats.avgPrice)} icon={DollarSign} accent="accent-teal" />
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Productos activos"
+          value={formatNumber(stats.active)}
+          icon={Package}
+          accent="primary"
+        />
+        <StatCard
+          label="Total productos"
+          value={formatNumber(stats.total)}
+          icon={Package}
+        />
+        <StatCard
+          label="Precio almacén promedio"
+          value={formatCurrency(stats.avgPrice)}
+          icon={DollarSign}
+          accent="success"
+        />
       </section>
 
       {products.length === 0 && !showModal ? (
@@ -133,28 +171,37 @@ export default function ProductosPage() {
           title="Aún no hay productos"
           description="Los productos son la base del sistema. Crea tu primer producto para empezar a registrar producción, ventas y stock."
           action={
-            <button onClick={() => openModal()} className="text-sm text-primary font-semibold hover:underline">
-              + Crear primer producto
-            </button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => openModal()}
+              leadingIcon={<Plus className="h-3.5 w-3.5" />}
+            >
+              Crear primer producto
+            </Button>
           }
         />
       ) : (
-        <section className="bg-surface-card rounded-xl border border-hairline overflow-hidden">
-          <div className="px-5 py-4 border-b border-hairline flex flex-wrap items-center gap-3">
+        <section className="ts-card overflow-hidden">
+          <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
             <div className="flex items-center gap-2">
-              <Search className="w-4 h-4 text-muted" />
-              <h2 className="text-sm font-bold text-ink">Catálogo</h2>
+              <Search className="h-4 w-4 text-muted" />
+              <h2 className="text-sm font-medium text-ink">Catálogo</h2>
             </div>
-            <div className="flex-1 min-w-[180px] relative">
-              <input
+            <div className="ml-auto flex items-center gap-3">
+              <Input
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder="Buscar producto…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-3 pr-3 py-1.5 border border-hairline rounded-lg bg-canvas text-body text-sm focus:outline-none focus:border-primary"
+                leadingIcon={<Search className="h-3.5 w-3.5" />}
+                className="w-56 sm:w-72"
               />
+              <span className="text-xs text-muted">
+                {filteredProducts.length} producto
+                {filteredProducts.length !== 1 ? 's' : ''}
+              </span>
             </div>
-            <span className="text-xs text-muted">{filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''}</span>
           </div>
 
           {filteredProducts.length === 0 ? (
@@ -165,56 +212,73 @@ export default function ProductosPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-surface-soft">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-2xs font-bold text-muted uppercase tracking-wider">Producto</th>
-                    <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Precio (Almacén)</th>
-                    <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Precio (Distribución)</th>
-                    <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Unid. por caja</th>
-                    <th className="px-5 py-3 text-center text-2xs font-bold text-muted uppercase tracking-wider">Activo</th>
-                    <th className="px-5 py-3 text-right text-2xs font-bold text-muted uppercase tracking-wider">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline">
-                  {filteredProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-surface-soft/50">
-                      <td className="px-5 py-3.5">
-                        <div className="text-sm font-semibold text-ink">{p.name}</div>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Producto</TH>
+                    <TH className="text-right">Precio (Almacén)</TH>
+                    <TH className="text-right">Precio (Distribución)</TH>
+                    <TH className="text-right">Unid. por caja</TH>
+                    <TH className="text-center">Activo</TH>
+                    <TH className="text-right">Acciones</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {filteredProducts.map((p) => (
+                    <TR key={p.id}>
+                      <TD>
+                        <div className="font-medium text-ink">{p.name}</div>
                         {p.description && (
-                          <div className="text-xs text-muted mt-0.5">{p.description}</div>
+                          <div className="mt-0.5 text-xs text-muted">
+                            {p.description}
+                          </div>
                         )}
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-body text-right tabular-nums">
-                        {formatCurrency(p.priceWarehouse)} / ud
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-body text-right tabular-nums">
-                        {formatCurrency(p.priceDistribution)} / ud
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-body text-right tabular-nums">
+                      </TD>
+                      <TD className="text-right font-mono text-sm">
+                        {formatCurrency(p.priceWarehouse)}{' '}
+                        <span className="text-muted-soft">/ ud</span>
+                      </TD>
+                      <TD className="text-right font-mono text-sm">
+                        {formatCurrency(p.priceDistribution)}{' '}
+                        <span className="text-muted-soft">/ ud</span>
+                      </TD>
+                      <TD className="text-right font-mono text-sm">
                         {p.unitsPerBox}
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <span className={`inline-block w-2 h-2 rounded-full ${p.isActive ? 'bg-success' : 'bg-muted-soft'}`} />
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
+                      </TD>
+                      <TD className="text-center">
+                        <span
+                          className={cn(
+                            'inline-block h-2 w-2 rounded-full',
+                            p.isActive ? 'bg-success' : 'bg-muted-soft'
+                          )}
+                        />
+                      </TD>
+                      <TD className="text-right">
                         <div className="flex justify-end gap-1">
                           <PermissionGuard module="productos" action="edit">
-                            <button onClick={() => openModal(p)} className="p-1.5 text-muted hover:text-ink hover:bg-surface-soft rounded" title="Editar">
-                              <Edit2 className="w-4 h-4" />
+                            <button
+                              onClick={() => openModal(p)}
+                              className="ts-btn-icon"
+                              title="Editar"
+                            >
+                              <Edit2 className="h-4 w-4" />
                             </button>
                           </PermissionGuard>
                           <PermissionGuard module="productos" action="delete">
-                            <button onClick={() => handleDelete(p.id)} className="p-1.5 text-muted hover:text-error hover:bg-surface-soft rounded" title="Eliminar">
-                              <Trash2 className="w-4 h-4" />
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="ts-btn-icon hover:bg-error-soft hover:text-error"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </PermissionGuard>
                         </div>
-                      </td>
-                    </tr>
+                      </TD>
+                    </TR>
                   ))}
-                </tbody>
-              </table>
+                </TBody>
+              </Table>
             </div>
           )}
         </section>
@@ -227,99 +291,118 @@ export default function ProductosPage() {
           onClose={closeModal}
           size="md"
           footer={
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={closeModal} className="px-4 py-2 bg-surface-soft text-body rounded-lg hover:bg-surface-cream-strong font-medium">
+            <>
+              <Button variant="ghost" onClick={closeModal}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                form="product-form"
-                className="px-4 py-2 bg-primary text-on-primary rounded-lg hover:bg-primary-active font-medium"
-              >
+              </Button>
+              <Button type="submit" form="product-form">
                 {editing ? 'Guardar cambios' : 'Crear producto'}
-              </button>
-            </div>
+              </Button>
+            </>
           }
         >
           <form id="product-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-body-strong mb-1.5">Nombre del producto</label>
+              <label className="ts-label">Nombre del producto</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
                 placeholder="Ej: Pastel de Chocolate"
-                className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                className="ts-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-body-strong mb-1.5">Descripción (opcional)</label>
+              <label className="ts-label">Descripción (opcional)</label>
               <input
                 type="text"
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
                 placeholder="Breve descripción del producto"
-                className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                className="ts-input"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Precio almacén (USD/ud)
-                </label>
+                <label className="ts-label">Precio almacén</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={form.priceWarehouse}
-                  onChange={(e) => setForm({ ...form, priceWarehouse: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      priceWarehouse: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   required
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                  className="ts-input"
                 />
-                <p className="text-xs text-muted mt-1">Costo por unidad cuando sale del almacén</p>
+                <p className="mt-1 text-xs text-muted">
+                  Costo por unidad cuando sale del almacén
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-body-strong mb-1.5">
-                  Precio distribución (USD/ud)
-                </label>
+                <label className="ts-label">Precio distribución</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={form.priceDistribution}
-                  onChange={(e) => setForm({ ...form, priceDistribution: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      priceDistribution: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   required
-                  className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                  className="ts-input"
                 />
-                <p className="text-xs text-muted mt-1">Precio por unidad para distribuidores</p>
+                <p className="mt-1 text-xs text-muted">
+                  Precio por unidad para distribuidores
+                </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-body-strong mb-1.5">Unidades por caja</label>
+              <label className="ts-label">Unidades por caja</label>
               <input
                 type="number"
                 min="1"
                 value={form.unitsPerBox}
-                onChange={(e) => setForm({ ...form, unitsPerBox: parseInt(e.target.value) || 1 })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    unitsPerBox: parseInt(e.target.value) || 1,
+                  })
+                }
                 required
-                className="w-full px-3 py-2.5 border border-hairline rounded-lg bg-canvas text-body"
+                className="ts-input"
               />
-              <p className="text-xs text-muted mt-1">Cada caja contiene esta cantidad de unidades</p>
+              <p className="mt-1 text-xs text-muted">
+                Cada caja contiene esta cantidad de unidades
+              </p>
             </div>
 
             {form.name && form.unitsPerBox > 0 && (
-              <div className="bg-surface-soft rounded-lg p-3 text-sm space-y-1">
+              <div className="space-y-1 rounded-md bg-ash px-3 py-2.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted">Precio por caja (almacén):</span>
-                  <span className="font-semibold text-ink">{formatCurrency(form.priceWarehouse * form.unitsPerBox)}</span>
+                  <span className="font-medium text-ink">
+                    {formatCurrency(form.priceWarehouse * form.unitsPerBox)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted">Precio por caja (distribución):</span>
-                  <span className="font-semibold text-ink">{formatCurrency(form.priceDistribution * form.unitsPerBox)}</span>
+                  <span className="font-medium text-ink">
+                    {formatCurrency(form.priceDistribution * form.unitsPerBox)}
+                  </span>
                 </div>
               </div>
             )}
