@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  description String?
+  isSuperAdmin Boolean     @default(false)
+  permissions Permission[]
+  users       User[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Permission {
+  id     String @id @default(cuid())
+  module String
+  view   Boolean @default(false)
+  create Boolean @default(false)
+  edit   Boolean @default(false)
+  delete Boolean @default(false)
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId String
+
+  @@unique([roleId, module])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  description       String?
+  priceWarehouse    Float    @default(0.49)
+  priceDistribution Float    @default(0.54)
+  unitsPerBox       Int      @default(100)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  production        Production[]
+  warehouseStock    WarehouseStock[]
+  transfers         Transfer[]
+  sales             Sale[]
+  waste             Waste[]
+}
+
+model Production {
+  id         String   @id @default(cuid())
+  productId  String
+  boxes      Int
+  unitsPerBox Int     @default(100)
+  quantity   Int
+  status     String?
+  date       DateTime @default(now())
+  notes      String?
+  editedBy   String?
+  editedAt   DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model WarehouseStock {
+  id         String   @id @default(cuid())
+  productId  String
+  location   String   @default("main")
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+  
+  product    Product  @relation(fields: [productId], references: [id])
+  
+  @@unique([productId, location])
+}
+
+model Transfer {
+  id              String   @id @default(cuid())
+  productId       String
+  fromLocation    String
+  toLocation      String
+  quantity        Int
+  date            DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  product         Product  @relation(fields: [productId], references: [id])
+}
+
+model Customer {
+  id         String   @id @default(cuid())
+  name       String
+  province   String
+  phone      String?
+  email      String?
+  notes      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  sales      Sale[]
+  reservations Reservation[]
+}
+
+model Sale {
+  id         String   @id @default(cuid())
+  productId  String
+  customerId String
+  quantity   Int
+  total      Float
+  date       DateTime @default(now())
+  seller     String   @default("alex")
+  notes      String?
+  createdAt  DateTime @default(now())
+  
+  product    Product  @relation(fields: [productId], references: [id])
+  customer   Customer @relation(fields: [customerId], references: [id])
+  debt       Debt?
+}
+
+model Waste {
+  id         String   @id @default(cuid())
+  productId  String
+  quantity   Int
+  reason     String?
+  date       DateTime @default(now())
+  createdAt  DateTime @default(now())
+  
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model Marketing {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  category    String
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Float
+  date        DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Debt {
+  id          String   @id @default(cuid())
+  type        String   @default("manual")
+  amount      Float
+  paidAmount  Float    @default(0)
+  date        DateTime @default(now())
+  dueDate     DateTime?
+  notes       String?
+  isActive    Boolean  @default(true)
+  saleId      String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  payments    DebtPayment[]
+  sale        Sale?    @relation(fields: [saleId], references: [id])
+}
+
+model DebtPayment {
+  id         String   @id @default(cuid())
+  debtId     String?
+  amount     Float
+  date       DateTime @default(now())
+  notes      String?
+  type       String   @default("partial")
+  createdAt  DateTime @default(now())
+  
+  debt       Debt?    @relation(fields: [debtId], references: [id])
+}
+
+model Reservation {
+  id         String   @id @default(cuid())
+  customerId String
+  productId  String?
+  quantity   Int
+  notes      String?
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  customer   Customer @relation(fields: [customerId], references: [id])
+}
+
+model SystemConfig {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  updatedAt  DateTime @updatedAt
+}
