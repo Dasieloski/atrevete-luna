@@ -742,6 +742,7 @@ export default function DeudasPage() {
                     <TH>Tipo</TH>
                     <TH>Producto</TH>
                     <TH className="text-right">Monto pagado</TH>
+                    <TH className="text-right">Equiv. cajas</TH>
                     <TH className="text-right">Deuda original</TH>
                     <TH className="text-right">Saldo restante a pagar</TH>
                     <TH>Notas</TH>
@@ -757,6 +758,11 @@ export default function DeudasPage() {
                       <TD className="text-ink">{p.productName}</TD>
                       <TD className="text-right font-mono font-medium text-success">
                         {formatCurrency(p.amount)}
+                      </TD>
+                      <TD className="text-right font-mono text-slate">
+                        {avgPricePerBox > 0
+                          ? `${formatNumber(Math.round(p.amount / avgPricePerBox))} cjs`
+                          : '—'}
                       </TD>
                       <TD className="text-right font-mono text-ink">
                         {formatCurrency(p.deudaOriginal)}
