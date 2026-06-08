@@ -221,6 +221,13 @@ export default function DeudasPage() {
   const balanceNeto = +(totals.restante - prepaymentTotal).toFixed(2)
   const pendingCount = rows.filter((r) => r.isActive).length
 
+  const avgPricePerBox = useMemo(() => {
+    const pending = rows.filter((r) => r.isActive)
+    const totalDebt = pending.reduce((s, r) => s + r.debtAmount, 0)
+    const totalBoxes = pending.reduce((s, r) => s + r.boxes, 0)
+    return totalBoxes > 0 ? totalDebt / totalBoxes : 0
+  }, [rows])
+
   // Historial de pagos — todos los pagos ordenados por fecha
   const paymentHistory = useMemo(() => {
     const fromTs = new Date(range.from + 'T00:00:00').getTime()
@@ -805,6 +812,15 @@ export default function DeudasPage() {
                   placeholder="0.00"
                 />
               </div>
+              {accountForm.amount > 0 && avgPricePerBox > 0 && (
+                <p className="mt-1.5 text-xs text-muted">
+                  Equivale a aprox.{' '}
+                  <span className="font-semibold text-ink">
+                    {formatNumber(Math.round(accountForm.amount / avgPricePerBox))} cajas
+                  </span>{' '}
+                  (a ${formatCurrency(avgPricePerBox)} / caja)
+                </p>
+              )}
               {accountForm.amount > 0 && accountForm.amount < totals.restante - 0.01 && (
                 <p className="mt-1.5 text-xs text-warning">
                   Después de este pago quedarán{' '}
