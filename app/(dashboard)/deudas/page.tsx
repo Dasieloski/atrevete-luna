@@ -55,6 +55,7 @@ interface Debt {
   saleId: string | null
   notes: string | null
   payments: { id: string; amount: number; date: string; type: string; notes: string | null }[]
+  sale?: { product?: { name: string } }
 }
 
 interface Payment {
@@ -64,6 +65,7 @@ interface Payment {
   type: string
   notes: string | null
   debtId: string | null
+  createdAt?: string
 }
 
 type ModalKind = null | 'account' | 'prepayment' | 'manual'
@@ -228,31 +230,56 @@ export default function DeudasPage() {
     return totalBoxes > 0 ? totalDebt / totalBoxes : 0
   }, [rows])
 
-  // Historial de pagos — todos los pagos ordenados por fecha
+  // Historial de pagos con balance corriente global
   const paymentHistory = useMemo(() => {
+    // Sort ALL payments chronologically (ascending) for running balance
+    const sortedPayments = [...payments].sort((a, b) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime()
+      if (dateDiff !== 0) return dateDiff
+      const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return aCreated - bCreated
+    })
+
+    // Calculate running global balance for each payment
+    const enriched = sortedPayments.map((p, index) => {
+      // All debts created on or before this payment's date
+      const debtsUpToNow = debts.filter(
+        (d) => new Date(d.date).getTime() <= new Date(p.date).getTime()
+      )
+      const totalDebtUpToNow = debtsUpToNow.reduce((s, d) => s + d.amount, 0)
+
+      // All payments strictly before this one
+      const previousPayments = sortedPayments.slice(0, index)
+      const totalPaidBefore = previousPayments.reduce((s, pp) => s + pp.amount, 0)
+
+      const deudaOriginal = +(totalDebtUpToNow - totalPaidBefore).toFixed(2)
+      const saldoRestante = +(deudaOriginal - p.amount).toFixed(2)
+
+      // Product from associated debt (if any)
+      const debt = p.debtId ? debtById.get(p.debtId) : undefined
+      const productName =
+        debt?.sale?.product?.name || (p.type === 'prepayment' ? 'Adelanto' : '—')
+
+      return {
+        ...p,
+        deudaOriginal,
+        saldoRestante,
+        productName,
+      }
+    })
+
+    // Filter by date range and sort descending for display
     const fromTs = new Date(range.from + 'T00:00:00').getTime()
     const toTs = new Date(range.to + 'T23:59:59').getTime()
 
-    return payments
+    return enriched
       .filter((p) => {
         const ts = new Date(p.date).getTime()
         return ts >= fromTs && ts <= toTs
       })
-      .map((p) => {
-        const debt = p.debtId ? debtById.get(p.debtId) : undefined
-        const sale = debt?.saleId ? sales.find((s) => s.id === debt.saleId) : undefined
-        const originalAmount = debt?.amount ?? 0
-        const remaining = debt ? +(debt.amount - debt.paidAmount).toFixed(2) : 0
-        return {
-          ...p,
-          debt,
-          sale,
-          originalAmount,
-          remaining,
-        }
-      })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [payments, debtById, sales, range])
+  }, [payments, debts, debtById, range])
 
   async function handleAccountPayment(e: React.FormEvent) {
     e.preventDefault()
@@ -714,10 +741,9 @@ export default function DeudasPage() {
                     <TH>Fecha</TH>
                     <TH>Tipo</TH>
                     <TH>Producto</TH>
-                    <TH>Cliente</TH>
-                    <TH className="text-right">Monto</TH>
+                    <TH className="text-right">Monto pagado</TH>
                     <TH className="text-right">Deuda original</TH>
-                    <TH className="text-right">Saldo restante</TH>
+                    <TH className="text-right">Saldo restante a pagar</TH>
                     <TH>Notas</TH>
                   </TR>
                 </THead>
@@ -728,25 +754,20 @@ export default function DeudasPage() {
                         {formatDate(p.date)}
                       </TD>
                       <TD>{getPaymentTypeBadge(p.type)}</TD>
-                      <TD className="text-ink">
-                        {p.sale?.product?.name || '—'}
-                      </TD>
-                      <TD>
-                        {p.sale?.customer?.name || '—'}
-                        {p.sale?.customer?.province && (
-                          <span className="ml-1 text-xs text-muted">
-                            · {p.sale.customer.province}
-                          </span>
-                        )}
-                      </TD>
+                      <TD className="text-ink">{p.productName}</TD>
                       <TD className="text-right font-mono font-medium text-success">
                         {formatCurrency(p.amount)}
                       </TD>
                       <TD className="text-right font-mono text-ink">
-                        {formatCurrency(p.originalAmount)}
+                        {formatCurrency(p.deudaOriginal)}
                       </TD>
-                      <TD className="text-right font-mono font-semibold">
-                        {formatCurrency(p.remaining)}
+                      <TD
+                        className={cn(
+                          'text-right font-mono font-semibold',
+                          p.saldoRestante <= 0.01 ? 'text-success' : 'text-error'
+                        )}
+                      >
+                        {formatCurrency(Math.max(0, p.saldoRestante))}
                       </TD>
                       <TD className="text-muted">{p.notes || '—'}</TD>
                     </TR>
