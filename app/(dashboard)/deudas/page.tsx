@@ -5,7 +5,6 @@ import {
   HandCoins,
   FileText,
   CreditCard,
-  TrendingUp,
   Search,
   Wallet,
   Banknote,
@@ -16,6 +15,7 @@ import {
   AlertCircle,
   History,
   Receipt,
+  Plus,
 } from 'lucide-react'
 import { Modal } from '@/src/components/Modal'
 import { EmptyState } from '@/src/components/EmptyState'
@@ -66,7 +66,7 @@ interface Payment {
   debtId: string | null
 }
 
-type ModalKind = null | 'pay' | 'prepayment' | 'manual'
+type ModalKind = null | 'account' | 'prepayment' | 'manual'
 
 function defaultYearRange(): DateRange {
   return { from: yearStartInputDate(), to: todayInputDate() }
@@ -80,9 +80,11 @@ export default function DeudasPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all')
   const [modal, setModal] = useState<ModalKind>(null)
-  const [selectedDebtId, setSelectedDebtId] = useState<string>('')
-  const [payAmount, setPayAmount] = useState(0)
-  const [payNotes, setPayNotes] = useState('')
+  const [accountForm, setAccountForm] = useState({
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  })
   const [prepaymentForm, setPrepaymentForm] = useState({
     amount: 0,
     date: new Date().toISOString().split('T')[0],
@@ -97,6 +99,7 @@ export default function DeudasPage() {
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [payMsg, setPayMsg] = useState('')
 
   useEffect(() => {
     fetchAll()
@@ -244,62 +247,32 @@ export default function DeudasPage() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [payments, debtById, sales, range])
 
-  async function handlePayOne(e: React.FormEvent) {
+  async function handleAccountPayment(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedDebtId) return
-    const debt = debts.find((d) => d.id === selectedDebtId)
-    if (!debt) return
-    const remaining = debt.amount - debt.paidAmount
-    const type = payAmount >= remaining - 0.01 ? 'total' : 'partial'
-    const res = await fetch('/api/payments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type,
-        debtId: selectedDebtId,
-        amount: payAmount,
-        notes: payNotes,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.json()
-      alert(err.error || 'Error al registrar pago')
-      return
-    }
-    closePayModal()
-    fetchAll()
-  }
-
-  async function handleBulkPay() {
-    const pendingDebtIds = rows
-      .filter((r) => r.debtId && r.isActive)
-      .map((r) => r.debtId!)
-    if (pendingDebtIds.length === 0) {
-      alert('No hay deudas pendientes en el rango')
-      return
-    }
-    if (!confirm(`¿Liquidar ${pendingDebtIds.length} deuda(s) pendiente(s) del rango?`))
-      return
-
-    let ok = 0
-    for (const id of pendingDebtIds) {
-      const debt = debts.find((d) => d.id === id)
-      if (!debt) continue
-      const remaining = +(debt.amount - debt.paidAmount).toFixed(2)
-      const res = await fetch('/api/payments', {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/payments/account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'total',
-          debtId: id,
-          amount: remaining,
-          notes: `Liquidación por rango ${range.from} a ${range.to}`,
+          amount: accountForm.amount,
+          date: accountForm.date,
+          notes: accountForm.notes || null,
         }),
       })
-      if (res.ok) ok++
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || 'Error al registrar pago')
+        return
+      }
+      setPayMsg(data.message || 'Pago registrado')
+      setTimeout(() => setPayMsg(''), 4000)
+      setAccountForm({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
+      setModal(null)
+      fetchAll()
+    } finally {
+      setLoading(false)
     }
-    alert(`${ok} deuda(s) liquidadas`)
-    fetchAll()
   }
 
   async function handlePrepayment(e: React.FormEvent) {
@@ -344,38 +317,8 @@ export default function DeudasPage() {
     fetchAll()
   }
 
-  function openPayForRow(debtId: string) {
-    const debt = debts.find((d) => d.id === debtId)
-    if (!debt) return
-    const remaining = +(debt.amount - debt.paidAmount).toFixed(2)
-    setSelectedDebtId(debtId)
-    setPayAmount(remaining)
-    setPayNotes('')
-    setModal('pay')
-  }
-
-  function closePayModal() {
-    setModal(null)
-    setSelectedDebtId('')
-    setPayAmount(0)
-    setPayNotes('')
-  }
-
   function toggleExpand(debtId: string) {
     setExpandedDebtId((prev) => (prev === debtId ? null : debtId))
-  }
-
-  function getPaymentTypeLabel(type: string) {
-    switch (type) {
-      case 'total':
-        return 'Pago total'
-      case 'partial':
-        return 'Pago parcial'
-      case 'prepayment':
-        return 'Adelanto'
-      default:
-        return type
-    }
   }
 
   function getPaymentTypeBadge(type: string) {
@@ -396,15 +339,22 @@ export default function DeudasPage() {
       <PageHeader
         eyebrow="Finanzas"
         title="Control de deudas"
-        description="Cada venta a distribuidor genera una deuda a precio de almacén. Registra pagos parciales o totales y consulta el historial completo."
+        description="El total de deudas acumuladas con la fábrica se paga poco a poco. Registra un pago y se distribuye automáticamente entre las deudas más antiguas."
         actions={
           <>
+            <Button
+              variant="primary"
+              onClick={() => setModal('account')}
+              leadingIcon={<Banknote className="h-4 w-4" />}
+            >
+              Registrar pago
+            </Button>
             <Button
               variant="secondary"
               onClick={() => setModal('prepayment')}
               leadingIcon={<HandCoins className="h-4 w-4" />}
             >
-              Pago adelantado
+              Adelanto
             </Button>
             <Button
               variant="secondary"
@@ -416,6 +366,13 @@ export default function DeudasPage() {
           </>
         }
       />
+
+      {payMsg && (
+        <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success-soft px-4 py-3 text-sm text-success">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {payMsg}
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-md border border-coral/30 bg-coral-soft px-4 py-3 text-sm text-coral-dark">
@@ -455,20 +412,6 @@ export default function DeudasPage() {
           hint={prepaymentTotal > 0 ? `− ${formatCurrency(prepaymentTotal)} adelantos` : undefined}
         />
       </section>
-
-      {/* Liquidar todo */}
-      {totals.restante > 0 && (
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={handleBulkPay}
-            leadingIcon={<Banknote className="h-4 w-4" />}
-          >
-            Liquidar todo el rango ({formatCurrency(totals.restante)})
-          </Button>
-        </div>
-      )}
 
       {/* Tabs */}
       <Tabs
@@ -546,7 +489,6 @@ export default function DeudasPage() {
                     <TH className="text-right">Restante</TH>
                     <TH className="text-center">Estado</TH>
                     <TH className="text-center">Pagos</TH>
-                    <TH className="text-right">Acción</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -622,27 +564,12 @@ export default function DeudasPage() {
                             '—'
                           )}
                         </TD>
-                        <TD className="text-right">
-                          {r.isActive && r.debtId ? (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openPayForRow(r.debtId!)
-                              }}
-                            >
-                              Pagar
-                            </Button>
-                          ) : (
-                            <span className="text-xs text-muted-soft">—</span>
-                          )}
-                        </TD>
                       </TR>
 
                       {/* Expanded payment history */}
                       {expandedDebtId === r.debtId && r.debtId && r.payments.length > 0 && (
                         <TR className="bg-surface/60">
-                          <TD colSpan={11} className="px-0 py-0">
+                          <TD colSpan={10} className="px-0 py-0">
                             <div className="border-t border-hairline-soft px-6 py-4">
                               <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                                 <Receipt className="h-4 w-4 text-blue" />
@@ -746,7 +673,7 @@ export default function DeudasPage() {
                     <TD className="text-right font-mono text-error">
                       {formatCurrency(totals.restante)}
                     </TD>
-                    <TD colSpan={3} />
+                    <TD colSpan={2} />
                   </TR>
                 </TBody>
               </Table>
@@ -824,145 +751,120 @@ export default function DeudasPage() {
         </section>
       )}
 
-      {/* Modal: Pagar deuda */}
-      {modal === 'pay' && (
-        <Modal title="Registrar pago" onClose={closePayModal}>
-          {(() => {
-            const debt = debts.find((d) => d.id === selectedDebtId)
-            if (!debt) return null
-            const remaining = +(debt.amount - debt.paidAmount).toFixed(2)
-            const isPartial = payAmount < remaining - 0.01
-            return (
-              <form onSubmit={handlePayOne} className="space-y-5">
-                {/* Resumen de la deuda */}
-                <div className="space-y-2 rounded-xl border border-hairline-soft bg-surface p-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate">Deuda total:</span>
-                    <span className="font-medium text-ink">
-                      {formatCurrency(debt.amount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate">Ya pagado:</span>
-                    <span className="font-medium text-success">
-                      {formatCurrency(debt.paidAmount)}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex justify-between border-t border-hairline pt-2">
-                    <span className="font-medium text-slate">Saldo pendiente:</span>
-                    <span className="text-lg font-semibold text-error">
-                      {formatCurrency(remaining)}
-                    </span>
-                  </div>
-                </div>
+      {/* Modal: Registrar pago (a cuenta / global) */}
+      {modal === 'account' && (
+        <Modal title="Registrar pago a cuenta" onClose={() => setModal(null)}>
+          <form onSubmit={handleAccountPayment} className="space-y-5">
+            {/* Resumen del total pendiente */}
+            <div className="space-y-2 rounded-xl border border-hairline-soft bg-surface p-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate">Deuda total acumulada:</span>
+                <span className="font-medium text-ink">
+                  {formatCurrency(totals.deuda)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate">Ya pagado:</span>
+                <span className="font-medium text-success">
+                  {formatCurrency(totals.pagado)}
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between border-t border-hairline pt-2">
+                <span className="font-medium text-slate">Saldo pendiente:</span>
+                <span className="text-lg font-semibold text-error">
+                  {formatCurrency(totals.restante)}
+                </span>
+              </div>
+              {pendingCount > 0 && (
+                <p className="text-xs text-muted">
+                  Se distribuirá entre {pendingCount} deuda{pendingCount !== 1 ? 's' : ''} pendiente{pendingCount !== 1 ? 's' : ''}, empezando por las más antiguas.
+                </p>
+              )}
+            </div>
 
-                {/* Tipo de pago */}
-                <div className="space-y-2">
-                  <label className="ts-label">Tipo de pago</label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPayAmount(remaining)}
-                      className={cn(
-                        'flex-1 rounded-pill border px-4 py-2.5 text-sm font-medium transition-colors',
-                        payAmount >= remaining - 0.01
-                          ? 'border-primary bg-primary text-on-primary'
-                          : 'border-hairline-strong bg-canvas text-charcoal hover:bg-surface'
-                      )}
-                    >
-                      <CheckCircle2 className="mx-auto mb-1 h-4 w-4" />
-                      Pago total
-                      <div className="mt-0.5 text-[11px] font-normal opacity-80">
-                        {formatCurrency(remaining)}
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPayAmount(0)}
-                      className={cn(
-                        'flex-1 rounded-pill border px-4 py-2.5 text-sm font-medium transition-colors',
-                        payAmount > 0 && payAmount < remaining - 0.01
-                          ? 'border-primary bg-primary text-on-primary'
-                          : 'border-hairline-strong bg-canvas text-charcoal hover:bg-surface'
-                      )}
-                    >
-                      <Clock className="mx-auto mb-1 h-4 w-4" />
-                      Pago parcial
-                      <div className="mt-0.5 text-[11px] font-normal opacity-80">
-                        Monto personalizado
-                      </div>
-                    </button>
-                  </div>
-                </div>
+            {/* Monto */}
+            <div>
+              <label className="ts-label">Monto a pagar</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={accountForm.amount || ''}
+                  onChange={(e) =>
+                    setAccountForm({
+                      ...accountForm,
+                      amount: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  required
+                  className="ts-input pl-7"
+                  placeholder="0.00"
+                />
+              </div>
+              {accountForm.amount > 0 && accountForm.amount < totals.restante - 0.01 && (
+                <p className="mt-1.5 text-xs text-warning">
+                  Después de este pago quedarán{' '}
+                  <span className="font-semibold">
+                    {formatCurrency(+(totals.restante - accountForm.amount).toFixed(2))}
+                  </span>{' '}
+                  pendientes
+                </p>
+              )}
+              {accountForm.amount >= totals.restante - 0.01 && accountForm.amount > 0 && (
+                <p className="mt-1.5 text-xs text-success">
+                  Este pago cubre o excede el saldo pendiente total
+                </p>
+              )}
+            </div>
 
-                {/* Monto */}
-                <div>
-                  <label className="ts-label">Monto a pagar</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      max={remaining}
-                      value={payAmount || ''}
-                      onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                      required
-                      className="ts-input pl-7"
-                    />
-                  </div>
-                  {payAmount > 0 && payAmount < remaining - 0.01 && (
-                    <p className="mt-1.5 text-xs text-warning">
-                      Después de este pago quedarán{' '}
-                      <span className="font-semibold">
-                        {formatCurrency(+(remaining - payAmount).toFixed(2))}
-                      </span>{' '}
-                      pendientes
-                    </p>
-                  )}
-                  {payAmount >= remaining - 0.01 && payAmount > 0 && (
-                    <p className="mt-1.5 text-xs text-success">
-                      Este pago liquida la deuda completamente
-                    </p>
-                  )}
-                </div>
+            {/* Fecha */}
+            <div>
+              <label className="ts-label">Fecha del pago</label>
+              <input
+                type="date"
+                value={accountForm.date}
+                onChange={(e) =>
+                  setAccountForm({ ...accountForm, date: e.target.value })
+                }
+                required
+                className="ts-input"
+              />
+            </div>
 
-                {/* Notas */}
-                <div>
-                  <label className="ts-label">Notas (opcional)</label>
-                  <input
-                    type="text"
-                    value={payNotes}
-                    onChange={(e) => setPayNotes(e.target.value)}
-                    placeholder={
-                      isPartial
-                        ? 'Pago parcial de deuda'
-                        : 'Pago total de la deuda'
-                    }
-                    className="ts-input"
-                  />
-                </div>
+            {/* Notas */}
+            <div>
+              <label className="ts-label">Notas (opcional)</label>
+              <input
+                type="text"
+                value={accountForm.notes}
+                onChange={(e) =>
+                  setAccountForm({ ...accountForm, notes: e.target.value })
+                }
+                placeholder="Referencia, banco, nota…"
+                className="ts-input"
+              />
+            </div>
 
-                <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={closePayModal}
-                    fullWidth
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" fullWidth loading={loading}>
-                    {isPartial
-                      ? `Registrar pago parcial (${formatCurrency(payAmount)})`
-                      : 'Registrar pago total'}
-                  </Button>
-                </div>
-              </form>
-            )
-          })()}
+            <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setModal(null)}
+                fullWidth
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" fullWidth loading={loading}>
+                {accountForm.amount > 0
+                  ? `Registrar pago (${formatCurrency(accountForm.amount)})`
+                  : 'Registrar pago'}
+              </Button>
+            </div>
+          </form>
         </Modal>
       )}
 
