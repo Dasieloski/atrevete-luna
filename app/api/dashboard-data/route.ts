@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     lte: new Date(to + 'T23:59:59'),
   }
 
-  const [products, productions, transfers, sales, waste] = await Promise.all([
+  const [products, productions, transfers, sales, waste, payments] = await Promise.all([
     prisma.product.findMany({ where: { isActive: true } }),
     prisma.production.findMany({
       where: { date: dateFilter },
@@ -41,14 +41,24 @@ export async function GET(request: Request) {
       include: { product: true },
       orderBy: { date: 'asc' },
     }),
+    prisma.debtPayment.findMany({
+      where: { date: dateFilter },
+      orderBy: { date: 'asc' },
+    }),
   ])
 
-  const debts = await prisma.debt.findMany({
-    where: { isActive: true },
-    select: { amount: true, paidAmount: true },
+  // Get all debts up to the end date for running balance calculation
+  const endDate = new Date(to + 'T23:59:59')
+  const allDebts = await prisma.debt.findMany({
+    where: {
+      date: {
+        lte: endDate,
+      },
+    },
+    select: { amount: true, paidAmount: true, date: true },
   })
 
-  const totalDebt = debts.reduce((sum, d) => sum + (d.amount - d.paidAmount), 0)
+  const totalDebt = allDebts.reduce((sum, d) => sum + (d.amount - d.paidAmount), 0)
 
-  return NextResponse.json({ products, productions, transfers, sales, waste, totalDebt })
+  return NextResponse.json({ products, productions, transfers, sales, waste, payments, totalDebt })
 }

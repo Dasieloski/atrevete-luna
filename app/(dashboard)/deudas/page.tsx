@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { motion } from 'motion/react'
 import {
   HandCoins,
   FileText,
@@ -16,6 +17,7 @@ import {
   History,
   Receipt,
   Plus,
+  ArrowUpRight,
 } from 'lucide-react'
 import { Modal } from '@/src/components/Modal'
 import { EmptyState } from '@/src/components/EmptyState'
@@ -432,20 +434,54 @@ export default function DeudasPage() {
           accent="success"
         />
         <StatCard
-          label="Pendiente"
-          value={formatCurrency(totals.restante)}
-          icon={Clock}
-          accent={totals.restante > 0 ? 'warning' : 'success'}
-          hint={pendingCount > 0 ? `${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}` : undefined}
+          label={totals.restante < -0.01 ? 'Saldo a favor' : 'Pendiente'}
+          value={formatCurrency(Math.abs(totals.restante))}
+          icon={totals.restante < -0.01 ? ArrowUpRight : Clock}
+          accent={totals.restante < -0.01 ? 'success' : totals.restante > 0 ? 'warning' : 'success'}
+          hint={
+            totals.restante < -0.01
+              ? 'La fábrica te debe'
+              : pendingCount > 0
+              ? `${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}`
+              : undefined
+          }
         />
         <StatCard
-          label="Balance neto"
-          value={formatCurrency(balanceNeto)}
-          icon={Wallet}
-          accent={balanceNeto > 0 ? 'error' : balanceNeto < 0 ? 'success' : 'primary'}
-          hint={prepaymentTotal > 0 ? `− ${formatCurrency(prepaymentTotal)} adelantos` : undefined}
+          label={balanceNeto < -0.01 ? 'Saldo a favor (neto)' : 'Balance neto'}
+          value={formatCurrency(Math.abs(balanceNeto))}
+          icon={balanceNeto < -0.01 ? ArrowUpRight : Wallet}
+          accent={balanceNeto < -0.01 ? 'success' : balanceNeto > 0 ? 'error' : 'primary'}
+          hint={
+            balanceNeto < -0.01
+              ? 'Incluyendo adelantos'
+              : prepaymentTotal > 0
+              ? `− ${formatCurrency(prepaymentTotal)} adelantos`
+              : undefined
+          }
         />
       </section>
+
+      {/* Alerta: deuda negativa (saldo a favor) */}
+      {totals.restante < -0.01 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28 }}
+          className="flex items-start gap-3 rounded-xl border border-success/30 bg-success-soft px-4 py-3"
+        >
+          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+          <div className="text-sm">
+            <p className="font-medium text-success">Saldo a favor con la fábrica</p>
+            <p className="text-graphite">
+              Has pagado{' '}
+              <strong className="font-semibold text-ink">
+                {formatCurrency(Math.abs(totals.restante))}
+              </strong>{' '}
+              de más. La fábrica te debe este monto.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <Tabs
@@ -574,11 +610,25 @@ export default function DeudasPage() {
                         <TD className="text-right font-mono text-success">
                           {formatCurrency(r.paidAmount)}
                         </TD>
-                        <TD className="text-right font-mono font-semibold">
-                          {formatCurrency(r.remaining)}
+                        <TD className={cn(
+                          'text-right font-mono font-semibold',
+                          r.remaining < -0.01 ? 'text-success' : r.remaining > 0.01 ? 'text-error' : 'text-ink'
+                        )}>
+                          {r.remaining < -0.01 ? (
+                            <span className="inline-flex items-center gap-1">
+                              <ArrowUpRight className="h-3 w-3" />
+                              {formatCurrency(Math.abs(r.remaining))}
+                            </span>
+                          ) : (
+                            formatCurrency(r.remaining)
+                          )}
                         </TD>
                         <TD className="text-center">
-                          {r.isActive ? (
+                          {r.remaining < -0.01 ? (
+                            <Badge tone="success" dot>
+                              A favor
+                            </Badge>
+                          ) : r.isActive ? (
                             <Badge tone="warning" dot>
                               Pendiente
                             </Badge>
@@ -704,8 +754,18 @@ export default function DeudasPage() {
                     <TD className="text-right font-mono text-success">
                       {formatCurrency(totals.pagado)}
                     </TD>
-                    <TD className="text-right font-mono text-error">
-                      {formatCurrency(totals.restante)}
+                    <TD className={cn(
+                      'text-right font-mono',
+                      totals.restante < -0.01 ? 'text-success' : 'text-error'
+                    )}>
+                      {totals.restante < -0.01 ? (
+                        <span className="inline-flex items-center gap-1">
+                          <ArrowUpRight className="h-3 w-3" />
+                          {formatCurrency(Math.abs(totals.restante))}
+                        </span>
+                      ) : (
+                        formatCurrency(totals.restante)
+                      )}
                     </TD>
                     <TD colSpan={2} />
                   </TR>
