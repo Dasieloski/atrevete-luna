@@ -59,6 +59,11 @@ export function monthStartInputDate(): string {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
 }
 
+export function yearStartInputDate(): string {
+  const y = new Date().getFullYear()
+  return `${y}-01-01`
+}
+
 export function daysBetween(from: string, to: string): number {
   if (!from || !to) return 0
   const a = new Date(from + 'T00:00:00').getTime()

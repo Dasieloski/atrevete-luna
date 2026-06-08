@@ -1,7 +1,22 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { HandCoins, FileText, CreditCard, TrendingUp, Search, Wallet, Banknote } from 'lucide-react'
+import {
+  HandCoins,
+  FileText,
+  CreditCard,
+  TrendingUp,
+  Search,
+  Wallet,
+  Banknote,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  History,
+  Receipt,
+} from 'lucide-react'
 import { Modal } from '@/src/components/Modal'
 import { EmptyState } from '@/src/components/EmptyState'
 import { PageHeader } from '@/src/components/ui/PageHeader'
@@ -13,7 +28,8 @@ import { Tabs } from '@/src/components/ui/Tabs'
 import { StatCard } from '@/src/components/StatCard'
 import { cn } from '@/src/lib/utils'
 import { formatDate, formatNumber, formatCurrency } from '@/src/lib/format'
-import { DateRangeFilter, defaultRange } from '@/src/components/DateRangeFilter'
+import { DateRangeFilter } from '@/src/components/DateRangeFilter'
+import { yearStartInputDate, todayInputDate } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
 
 interface Sale {
@@ -38,7 +54,7 @@ interface Debt {
   isActive: boolean
   saleId: string | null
   notes: string | null
-  payments: { id: string; amount: number; date: string; type: string }[]
+  payments: { id: string; amount: number; date: string; type: string; notes: string | null }[]
 }
 
 interface Payment {
@@ -46,44 +62,82 @@ interface Payment {
   amount: number
   date: string
   type: string
+  notes: string | null
   debtId: string | null
 }
 
 type ModalKind = null | 'pay' | 'prepayment' | 'manual'
 
-export default function PagosPage() {
+function defaultYearRange(): DateRange {
+  return { from: yearStartInputDate(), to: todayInputDate() }
+}
+
+export default function DeudasPage() {
   const [sales, setSales] = useState<Sale[]>([])
   const [debts, setDebts] = useState<Debt[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
-  const [range, setRange] = useState<DateRange>(defaultRange)
+  const [range, setRange] = useState<DateRange>(defaultYearRange)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'paid'>('all')
   const [modal, setModal] = useState<ModalKind>(null)
   const [selectedDebtId, setSelectedDebtId] = useState<string>('')
   const [payAmount, setPayAmount] = useState(0)
   const [payNotes, setPayNotes] = useState('')
-  const [prepaymentForm, setPrepaymentForm] = useState({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
-  const [manualForm, setManualForm] = useState({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
+  const [prepaymentForm, setPrepaymentForm] = useState({
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  })
+  const [manualForm, setManualForm] = useState({
+    amount: 0,
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  })
+  const [activeTab, setActiveTab] = useState<'debts' | 'history'>('debts')
+  const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     fetchAll()
   }, [])
 
   async function fetchAll() {
-    const [salesRes, debtsRes, paymentsRes] = await Promise.all([
-      fetch('/api/sales'),
-      fetch('/api/debts'),
-      fetch('/api/payments'),
-    ])
-    setSales(await salesRes.json())
-    setDebts(await debtsRes.json())
-    setPayments(await paymentsRes.json())
+    setLoading(true)
+    setError('')
+    try {
+      const [salesRes, debtsRes, paymentsRes] = await Promise.all([
+        fetch('/api/sales'),
+        fetch('/api/debts'),
+        fetch('/api/payments'),
+      ])
+
+      if (!salesRes.ok) throw new Error('Error cargando ventas')
+      if (!debtsRes.ok) throw new Error('Error cargando deudas')
+      if (!paymentsRes.ok) throw new Error('Error cargando pagos')
+
+      setSales(await salesRes.json())
+      setDebts(await debtsRes.json())
+      setPayments(await paymentsRes.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error de conexión')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const debtBySaleId = useMemo(() => {
     const m = new Map<string, Debt>()
     for (const d of debts) {
       if (d.saleId) m.set(d.saleId, d)
+    }
+    return m
+  }, [debts])
+
+  const debtById = useMemo(() => {
+    const m = new Map<string, Debt>()
+    for (const d of debts) {
+      m.set(d.id, d)
     }
     return m
   }, [debts])
@@ -112,6 +166,7 @@ export default function PagosPage() {
         const paidAmount = debt?.paidAmount ?? 0
         const remaining = +(debtAmount - paidAmount).toFixed(2)
         const isActive = debt ? debt.isActive : true
+        const paymentCount = debt?.payments?.length ?? 0
         return {
           id: s.id,
           date: s.date,
@@ -125,6 +180,8 @@ export default function PagosPage() {
           remaining,
           isActive,
           debtId: debt?.id ?? null,
+          paymentCount,
+          payments: debt?.payments ?? [],
         }
       })
 
@@ -161,6 +218,32 @@ export default function PagosPage() {
   const balanceNeto = +(totals.restante - prepaymentTotal).toFixed(2)
   const pendingCount = rows.filter((r) => r.isActive).length
 
+  // Historial de pagos — todos los pagos ordenados por fecha
+  const paymentHistory = useMemo(() => {
+    const fromTs = new Date(range.from + 'T00:00:00').getTime()
+    const toTs = new Date(range.to + 'T23:59:59').getTime()
+
+    return payments
+      .filter((p) => {
+        const ts = new Date(p.date).getTime()
+        return ts >= fromTs && ts <= toTs
+      })
+      .map((p) => {
+        const debt = p.debtId ? debtById.get(p.debtId) : undefined
+        const sale = debt?.saleId ? sales.find((s) => s.id === debt.saleId) : undefined
+        const originalAmount = debt?.amount ?? 0
+        const remaining = debt ? +(debt.amount - debt.paidAmount).toFixed(2) : 0
+        return {
+          ...p,
+          debt,
+          sale,
+          originalAmount,
+          remaining,
+        }
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [payments, debtById, sales, range])
+
   async function handlePayOne(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedDebtId) return
@@ -171,7 +254,12 @@ export default function PagosPage() {
     const res = await fetch('/api/payments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, debtId: selectedDebtId, amount: payAmount, notes: payNotes }),
+      body: JSON.stringify({
+        type,
+        debtId: selectedDebtId,
+        amount: payAmount,
+        notes: payNotes,
+      }),
     })
     if (!res.ok) {
       const err = await res.json()
@@ -190,7 +278,8 @@ export default function PagosPage() {
       alert('No hay deudas pendientes en el rango')
       return
     }
-    if (!confirm(`¿Liquidar ${pendingDebtIds.length} deuda(s) pendiente(s) del rango?`)) return
+    if (!confirm(`¿Liquidar ${pendingDebtIds.length} deuda(s) pendiente(s) del rango?`))
+      return
 
     let ok = 0
     for (const id of pendingDebtIds) {
@@ -225,7 +314,11 @@ export default function PagosPage() {
         notes: prepaymentForm.notes || 'Pago adelantado',
       }),
     })
-    setPrepaymentForm({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
+    setPrepaymentForm({
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      notes: '',
+    })
     setModal(null)
     fetchAll()
   }
@@ -242,7 +335,11 @@ export default function PagosPage() {
         notes: manualForm.notes || null,
       }),
     })
-    setManualForm({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
+    setManualForm({
+      amount: 0,
+      date: new Date().toISOString().split('T')[0],
+      notes: '',
+    })
     setModal(null)
     fetchAll()
   }
@@ -264,12 +361,42 @@ export default function PagosPage() {
     setPayNotes('')
   }
 
+  function toggleExpand(debtId: string) {
+    setExpandedDebtId((prev) => (prev === debtId ? null : debtId))
+  }
+
+  function getPaymentTypeLabel(type: string) {
+    switch (type) {
+      case 'total':
+        return 'Pago total'
+      case 'partial':
+        return 'Pago parcial'
+      case 'prepayment':
+        return 'Adelanto'
+      default:
+        return type
+    }
+  }
+
+  function getPaymentTypeBadge(type: string) {
+    switch (type) {
+      case 'total':
+        return <Badge tone="success">Total</Badge>
+      case 'partial':
+        return <Badge tone="warning">Parcial</Badge>
+      case 'prepayment':
+        return <Badge tone="info">Adelanto</Badge>
+      default:
+        return <Badge tone="neutral">{type}</Badge>
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Finanzas"
         title="Control de deudas"
-        description="Cada venta a distribuidor genera una deuda a precio de almacén. Aquí puedes ver el estado de cada deuda, registrar pagos y llevar el balance general."
+        description="Cada venta a distribuidor genera una deuda a precio de almacén. Registra pagos parciales o totales y consulta el historial completo."
         actions={
           <>
             <Button
@@ -290,246 +417,519 @@ export default function PagosPage() {
         }
       />
 
+      {error && (
+        <div className="flex items-center gap-2 rounded-md border border-coral/30 bg-coral-soft px-4 py-3 text-sm text-coral-dark">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
       <DateRangeFilter value={range} onChange={setRange} />
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="ts-card-pad">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-soft">
-            Deuda pendiente
-          </p>
-          <p
-            className={cn(
-              'mt-2 font-mono text-[clamp(1.5rem,1.2rem+1vw,1.875rem)] font-medium leading-none tracking-tight',
-              totals.restante > 0 ? 'text-error' : 'text-ink'
-            )}
-          >
-            {formatCurrency(totals.restante)}
-          </p>
-          <p className="mt-1.5 text-xs text-muted">
-            {pendingCount} deuda{pendingCount !== 1 ? 's' : ''} pendiente
-            {pendingCount !== 1 ? 's' : ''}
-          </p>
+      {/* Stats cards */}
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Deuda total"
+          value={formatCurrency(totals.deuda)}
+          icon={CreditCard}
+          accent="primary"
+        />
+        <StatCard
+          label="Pagado"
+          value={formatCurrency(totals.pagado)}
+          icon={CheckCircle2}
+          accent="success"
+        />
+        <StatCard
+          label="Pendiente"
+          value={formatCurrency(totals.restante)}
+          icon={Clock}
+          accent={totals.restante > 0 ? 'warning' : 'success'}
+          hint={pendingCount > 0 ? `${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}` : undefined}
+        />
+        <StatCard
+          label="Balance neto"
+          value={formatCurrency(balanceNeto)}
+          icon={Wallet}
+          accent={balanceNeto > 0 ? 'error' : balanceNeto < 0 ? 'success' : 'primary'}
+          hint={prepaymentTotal > 0 ? `− ${formatCurrency(prepaymentTotal)} adelantos` : undefined}
+        />
+      </section>
+
+      {/* Liquidar todo */}
+      {totals.restante > 0 && (
+        <div className="flex justify-end">
           <Button
-            fullWidth
             size="sm"
             variant="primary"
-            className="mt-4"
             onClick={handleBulkPay}
-            disabled={totals.restante === 0}
             leadingIcon={<Banknote className="h-4 w-4" />}
           >
-            Liquidar todo el rango
+            Liquidar todo el rango ({formatCurrency(totals.restante)})
           </Button>
         </div>
+      )}
 
-        <div className="ts-card-pad">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-soft">
-            Pagado (período)
-          </p>
-          <p
-            className={cn(
-              'mt-2 font-mono text-[clamp(1.5rem,1.2rem+1vw,1.875rem)] font-medium leading-none tracking-tight',
-              totals.pagado > 0 ? 'text-success' : 'text-ink'
-            )}
-          >
-            {formatCurrency(totals.pagado)}
-          </p>
-          <p className="mt-1.5 text-xs text-muted">
-            {totals.count} venta{totals.count !== 1 ? 's' : ''} en el período
-          </p>
-        </div>
+      {/* Tabs */}
+      <Tabs
+        variant="underline"
+        size="md"
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as 'debts' | 'history')}
+        tabs={[
+          {
+            id: 'debts',
+            label: 'Deudas por venta',
+            count: rows.length,
+          },
+          {
+            id: 'history',
+            label: 'Historial de pagos',
+            count: paymentHistory.length,
+          },
+        ]}
+      />
 
-        <div className="ts-card-pad">
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-soft">
-            Balance neto
-          </p>
-          <p
-            className={cn(
-              'mt-2 flex items-center gap-2 font-mono text-[clamp(1.5rem,1.2rem+1vw,1.875rem)] font-medium leading-none tracking-tight',
-              balanceNeto > 0
-                ? 'text-error'
-                : balanceNeto < 0
-                ? 'text-success'
-                : 'text-ink'
-            )}
-          >
-            <Wallet className="h-5 w-5" />
-            {formatCurrency(balanceNeto)}
-          </p>
-          <p className="mt-1.5 text-xs text-muted">
-            Deuda − Adelantos ({formatCurrency(prepaymentTotal)})
-          </p>
-        </div>
-      </section>
-
-      <section className="ts-card overflow-hidden">
-        <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-muted" />
-            <h2 className="text-sm font-medium text-ink">Deudas por venta</h2>
+      {/* Tab: Deudas por venta */}
+      {activeTab === 'debts' && (
+        <section className="ts-card overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
+            <div className="flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted" />
+              <h2 className="text-sm font-medium text-ink">Deudas por venta</h2>
+            </div>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <Input
+                type="text"
+                placeholder="Buscar producto, cliente, provincia…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                leadingIcon={<Search className="h-3.5 w-3.5" />}
+                className="w-56 sm:w-72"
+              />
+              <Tabs
+                size="sm"
+                variant="pill"
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as 'all' | 'pending' | 'paid')}
+                tabs={[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'pending', label: 'Pendientes' },
+                  { id: 'paid', label: 'Pagados' },
+                ]}
+              />
+              <span className="text-xs text-muted">
+                {rows.length} registro{rows.length !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Input
-              type="text"
-              placeholder="Buscar producto, cliente, provincia…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              leadingIcon={<Search className="h-3.5 w-3.5" />}
-              className="w-56 sm:w-72"
-            />
-            <Tabs
-              size="sm"
-              variant="pill"
-              value={statusFilter}
-              onChange={(v) => setStatusFilter(v as 'all' | 'pending' | 'paid')}
-              tabs={[
-                { id: 'all', label: 'Todos' },
-                { id: 'pending', label: 'Pendientes' },
-                { id: 'paid', label: 'Pagados' },
-              ]}
-            />
-            <span className="text-xs text-muted">
-              {rows.length} registro{rows.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        </div>
 
-        {rows.length === 0 ? (
-          <EmptyState
-            icon={CreditCard}
-            title="Sin ventas en este período"
-            description="No hay ventas que generen deuda en el rango de fechas seleccionado."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Fecha</TH>
-                  <TH>Producto</TH>
-                  <TH>Cliente</TH>
-                  <TH className="text-center">Cajas</TH>
-                  <TH className="text-right">Deuda total</TH>
-                  <TH className="text-right">Pagado</TH>
-                  <TH className="text-right">Restante</TH>
-                  <TH className="text-center">Estado</TH>
-                  <TH className="text-right">Acción</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {rows.map((r) => (
-                  <TR key={r.id} className={r.isActive ? '' : 'bg-success-soft/40'}>
-                    <TD className="whitespace-nowrap font-mono text-[13px]">
-                      {formatDate(r.date)}
+          {rows.length === 0 ? (
+            <EmptyState
+              icon={CreditCard}
+              title="Sin ventas en este período"
+              description="No hay ventas que generen deuda en el rango de fechas seleccionado."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH className="w-8" />
+                    <TH>Fecha</TH>
+                    <TH>Producto</TH>
+                    <TH>Cliente</TH>
+                    <TH className="text-center">Cajas</TH>
+                    <TH className="text-right">Deuda total</TH>
+                    <TH className="text-right">Pagado</TH>
+                    <TH className="text-right">Restante</TH>
+                    <TH className="text-center">Estado</TH>
+                    <TH className="text-center">Pagos</TH>
+                    <TH className="text-right">Acción</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {rows.map((r) => (
+                    <>
+                      <TR
+                        key={r.id}
+                        className={cn(
+                          'cursor-pointer transition-colors',
+                          r.isActive ? '' : 'bg-success-soft/40',
+                          expandedDebtId === r.debtId ? 'bg-surface' : ''
+                        )}
+                        onClick={() => r.debtId && toggleExpand(r.debtId)}
+                      >
+                        <TD className="w-8">
+                          {r.debtId && r.payments.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleExpand(r.debtId!)
+                              }}
+                              className="inline-flex items-center justify-center rounded-md p-0.5 text-muted hover:bg-surface hover:text-ink"
+                            >
+                              {expandedDebtId === r.debtId ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                        </TD>
+                        <TD className="whitespace-nowrap font-mono text-[13px]">
+                          {formatDate(r.date)}
+                        </TD>
+                        <TD className="font-medium text-ink">{r.product}</TD>
+                        <TD>
+                          {r.customer}
+                          <span className="ml-1 text-xs text-muted">
+                            · {r.province}
+                          </span>
+                        </TD>
+                        <TD className="text-center font-mono">
+                          {formatNumber(r.boxes)}
+                        </TD>
+                        <TD className="text-right font-mono font-medium text-ink">
+                          {formatCurrency(r.debtAmount)}
+                        </TD>
+                        <TD className="text-right font-mono text-success">
+                          {formatCurrency(r.paidAmount)}
+                        </TD>
+                        <TD className="text-right font-mono font-semibold">
+                          {formatCurrency(r.remaining)}
+                        </TD>
+                        <TD className="text-center">
+                          {r.isActive ? (
+                            <Badge tone="warning" dot>
+                              Pendiente
+                            </Badge>
+                          ) : (
+                            <Badge tone="success" dot>
+                              Pagado
+                            </Badge>
+                          )}
+                        </TD>
+                        <TD className="text-center text-xs text-muted">
+                          {r.paymentCount > 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-pill bg-surface px-2 py-0.5 font-mono">
+                              <History className="h-3 w-3" />
+                              {r.paymentCount}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </TD>
+                        <TD className="text-right">
+                          {r.isActive && r.debtId ? (
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openPayForRow(r.debtId!)
+                              }}
+                            >
+                              Pagar
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-soft">—</span>
+                          )}
+                        </TD>
+                      </TR>
+
+                      {/* Expanded payment history */}
+                      {expandedDebtId === r.debtId && r.debtId && r.payments.length > 0 && (
+                        <TR className="bg-surface/60">
+                          <TD colSpan={11} className="px-0 py-0">
+                            <div className="border-t border-hairline-soft px-6 py-4">
+                              <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
+                                <Receipt className="h-4 w-4 text-blue" />
+                                Historial de pagos — {r.product} · {r.customer}
+                              </h4>
+                              <div className="overflow-x-auto rounded-lg border border-hairline-soft">
+                                <table className="w-full text-sm">
+                                  <thead>
+                                    <tr className="border-b border-hairline-soft bg-surface">
+                                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Fecha
+                                      </th>
+                                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Tipo
+                                      </th>
+                                      <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Monto
+                                      </th>
+                                      <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Saldo después
+                                      </th>
+                                      <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Notas
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {(() => {
+                                      let runningTotal = r.debtAmount
+                                      const sortedPayments = [...r.payments].sort(
+                                        (a, b) =>
+                                          new Date(a.date).getTime() -
+                                          new Date(b.date).getTime()
+                                      )
+                                      return sortedPayments.map((payment, idx) => {
+                                        runningTotal -= payment.amount
+                                        return (
+                                          <tr
+                                            key={payment.id}
+                                            className={cn(
+                                              'border-b border-hairline-soft last:border-0',
+                                              idx % 2 === 0 ? 'bg-canvas' : 'bg-surface/40'
+                                            )}
+                                          >
+                                            <td className="whitespace-nowrap px-3 py-2 font-mono text-[13px] text-ink">
+                                              {formatDate(payment.date)}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              {getPaymentTypeBadge(payment.type)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono font-medium text-success">
+                                              {formatCurrency(payment.amount)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono font-semibold">
+                                              {formatCurrency(Math.max(0, runningTotal))}
+                                            </td>
+                                            <td className="px-3 py-2 text-muted">
+                                              {payment.notes || '—'}
+                                            </td>
+                                          </tr>
+                                        )
+                                      })
+                                    })()}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="border-t border-hairline bg-surface font-medium">
+                                      <td
+                                        colSpan={2}
+                                        className="px-3 py-2 text-right text-xs uppercase tracking-wider text-ink"
+                                      >
+                                        Total pagado
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-success">
+                                        {formatCurrency(r.paidAmount)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono">
+                                        {formatCurrency(r.remaining)}
+                                      </td>
+                                      <td />
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            </div>
+                          </TD>
+                        </TR>
+                      )}
+                    </>
+                  ))}
+                  {/* Totals row */}
+                  <TR className="bg-surface font-medium hover:bg-surface">
+                    <TD colSpan={5} className="text-right uppercase tracking-wider text-ink">
+                      Total
                     </TD>
-                    <TD className="font-medium text-ink">{r.product}</TD>
-                    <TD>
-                      {r.customer}
-                      <span className="ml-1 text-xs text-muted">· {r.province}</span>
-                    </TD>
-                    <TD className="text-center font-mono">{formatNumber(r.boxes)}</TD>
-                    <TD className="text-right font-mono font-medium text-ink">
-                      {formatCurrency(r.debtAmount)}
+                    <TD className="text-right font-mono text-primary">
+                      {formatCurrency(totals.deuda)}
                     </TD>
                     <TD className="text-right font-mono text-success">
-                      {formatCurrency(r.paidAmount)}
+                      {formatCurrency(totals.pagado)}
                     </TD>
-                    <TD className="text-right font-mono font-semibold">
-                      {formatCurrency(r.remaining)}
+                    <TD className="text-right font-mono text-error">
+                      {formatCurrency(totals.restante)}
                     </TD>
-                    <TD className="text-center">
-                      {r.isActive ? (
-                        <Badge tone="warning" dot>
-                          Pendiente
-                        </Badge>
-                      ) : (
-                        <Badge tone="success" dot>
-                          Pagado
-                        </Badge>
-                      )}
-                    </TD>
-                    <TD className="text-right">
-                      {r.isActive && r.debtId ? (
-                        <Button
-                          size="sm"
-                          onClick={() => openPayForRow(r.debtId!)}
-                        >
-                          Pagar
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-soft">—</span>
-                      )}
-                    </TD>
+                    <TD colSpan={3} />
                   </TR>
-                ))}
-                <TR className="bg-ash/40 font-medium hover:bg-ash/40">
-                  <TD colSpan={4} className="text-right uppercase tracking-wider text-ink">
-                    Total
-                  </TD>
-                  <TD className="text-right font-mono text-primary">
-                    {formatCurrency(totals.deuda)}
-                  </TD>
-                  <TD className="text-right font-mono text-success">
-                    {formatCurrency(totals.pagado)}
-                  </TD>
-                  <TD className="text-right font-mono text-error">
-                    {formatCurrency(totals.restante)}
-                  </TD>
-                  <TD colSpan={2} />
-                </TR>
-              </TBody>
-            </Table>
-          </div>
-        )}
-      </section>
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </section>
+      )}
 
+      {/* Tab: Historial de pagos */}
+      {activeTab === 'history' && (
+        <section className="ts-card overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-hairline px-5 py-4 sm:px-6">
+            <History className="h-4 w-4 text-muted" />
+            <h2 className="text-sm font-medium text-ink">Historial de pagos</h2>
+            <span className="ml-auto text-xs text-muted">
+              {paymentHistory.length} pago{paymentHistory.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {paymentHistory.length === 0 ? (
+            <EmptyState
+              icon={Receipt}
+              title="Sin pagos en este período"
+              description="No hay pagos registrados en el rango de fechas seleccionado."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Fecha</TH>
+                    <TH>Tipo</TH>
+                    <TH>Producto</TH>
+                    <TH>Cliente</TH>
+                    <TH className="text-right">Monto</TH>
+                    <TH className="text-right">Deuda original</TH>
+                    <TH className="text-right">Saldo restante</TH>
+                    <TH>Notas</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {paymentHistory.map((p) => (
+                    <TR key={p.id}>
+                      <TD className="whitespace-nowrap font-mono text-[13px]">
+                        {formatDate(p.date)}
+                      </TD>
+                      <TD>{getPaymentTypeBadge(p.type)}</TD>
+                      <TD className="text-ink">
+                        {p.sale?.product?.name || '—'}
+                      </TD>
+                      <TD>
+                        {p.sale?.customer?.name || '—'}
+                        {p.sale?.customer?.province && (
+                          <span className="ml-1 text-xs text-muted">
+                            · {p.sale.customer.province}
+                          </span>
+                        )}
+                      </TD>
+                      <TD className="text-right font-mono font-medium text-success">
+                        {formatCurrency(p.amount)}
+                      </TD>
+                      <TD className="text-right font-mono text-ink">
+                        {formatCurrency(p.originalAmount)}
+                      </TD>
+                      <TD className="text-right font-mono font-semibold">
+                        {formatCurrency(p.remaining)}
+                      </TD>
+                      <TD className="text-muted">{p.notes || '—'}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Modal: Pagar deuda */}
       {modal === 'pay' && (
-        <Modal title="Pagar deuda" onClose={closePayModal}>
+        <Modal title="Registrar pago" onClose={closePayModal}>
           {(() => {
             const debt = debts.find((d) => d.id === selectedDebtId)
             if (!debt) return null
             const remaining = +(debt.amount - debt.paidAmount).toFixed(2)
+            const isPartial = payAmount < remaining - 0.01
             return (
-              <form onSubmit={handlePayOne} className="space-y-4">
-                <div className="space-y-1.5 rounded-md bg-ash px-3 py-2.5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted">Deuda total:</span>
+              <form onSubmit={handlePayOne} className="space-y-5">
+                {/* Resumen de la deuda */}
+                <div className="space-y-2 rounded-xl border border-hairline-soft bg-surface p-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate">Deuda total:</span>
                     <span className="font-medium text-ink">
                       {formatCurrency(debt.amount)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted">Ya pagado:</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate">Ya pagado:</span>
                     <span className="font-medium text-success">
                       {formatCurrency(debt.paidAmount)}
                     </span>
                   </div>
-                  <div className="mt-1.5 flex justify-between border-t border-hairline pt-1.5">
-                    <span className="font-medium text-muted">Saldo pendiente:</span>
-                    <span className="font-semibold text-ink">
+                  <div className="mt-2 flex justify-between border-t border-hairline pt-2">
+                    <span className="font-medium text-slate">Saldo pendiente:</span>
+                    <span className="text-lg font-semibold text-error">
                       {formatCurrency(remaining)}
                     </span>
                   </div>
                 </div>
+
+                {/* Tipo de pago */}
+                <div className="space-y-2">
+                  <label className="ts-label">Tipo de pago</label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayAmount(remaining)}
+                      className={cn(
+                        'flex-1 rounded-pill border px-4 py-2.5 text-sm font-medium transition-colors',
+                        payAmount >= remaining - 0.01
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-hairline-strong bg-canvas text-charcoal hover:bg-surface'
+                      )}
+                    >
+                      <CheckCircle2 className="mx-auto mb-1 h-4 w-4" />
+                      Pago total
+                      <div className="mt-0.5 text-[11px] font-normal opacity-80">
+                        {formatCurrency(remaining)}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayAmount(0)}
+                      className={cn(
+                        'flex-1 rounded-pill border px-4 py-2.5 text-sm font-medium transition-colors',
+                        payAmount > 0 && payAmount < remaining - 0.01
+                          ? 'border-primary bg-primary text-on-primary'
+                          : 'border-hairline-strong bg-canvas text-charcoal hover:bg-surface'
+                      )}
+                    >
+                      <Clock className="mx-auto mb-1 h-4 w-4" />
+                      Pago parcial
+                      <div className="mt-0.5 text-[11px] font-normal opacity-80">
+                        Monto personalizado
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Monto */}
                 <div>
                   <label className="ts-label">Monto a pagar</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
-                    required
-                    className="ts-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setPayAmount(remaining)}
-                    className="ts-link mt-1.5 text-primary"
-                  >
-                    Pagar saldo completo ({formatCurrency(remaining)})
-                  </button>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={remaining}
+                      value={payAmount || ''}
+                      onChange={(e) => setPayAmount(parseFloat(e.target.value) || 0)}
+                      required
+                      className="ts-input pl-7"
+                    />
+                  </div>
+                  {payAmount > 0 && payAmount < remaining - 0.01 && (
+                    <p className="mt-1.5 text-xs text-warning">
+                      Después de este pago quedarán{' '}
+                      <span className="font-semibold">
+                        {formatCurrency(+(remaining - payAmount).toFixed(2))}
+                      </span>{' '}
+                      pendientes
+                    </p>
+                  )}
+                  {payAmount >= remaining - 0.01 && payAmount > 0 && (
+                    <p className="mt-1.5 text-xs text-success">
+                      Este pago liquida la deuda completamente
+                    </p>
+                  )}
                 </div>
+
+                {/* Notas */}
                 <div>
                   <label className="ts-label">Notas (opcional)</label>
                   <input
@@ -537,13 +937,14 @@ export default function PagosPage() {
                     value={payNotes}
                     onChange={(e) => setPayNotes(e.target.value)}
                     placeholder={
-                      payAmount >= remaining - 0.01
-                        ? 'Pago total de la deuda'
-                        : 'Pago parcial'
+                      isPartial
+                        ? 'Pago parcial de deuda'
+                        : 'Pago total de la deuda'
                     }
                     className="ts-input"
                   />
                 </div>
+
                 <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
                   <Button
                     type="button"
@@ -553,10 +954,10 @@ export default function PagosPage() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" fullWidth>
-                    {payAmount >= remaining - 0.01
-                      ? 'Pagar deuda completa'
-                      : 'Registrar pago parcial'}
+                  <Button type="submit" fullWidth loading={loading}>
+                    {isPartial
+                      ? `Registrar pago parcial (${formatCurrency(payAmount)})`
+                      : 'Registrar pago total'}
                   </Button>
                 </div>
               </form>
@@ -565,6 +966,7 @@ export default function PagosPage() {
         </Modal>
       )}
 
+      {/* Modal: Pago adelantado */}
       {modal === 'prepayment' && (
         <Modal
           title="Pago adelantado"
@@ -581,8 +983,12 @@ export default function PagosPage() {
             </>
           }
         >
-          <form id="prepayment-form" onSubmit={handlePrepayment} className="space-y-4">
-            <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-sm text-primary">
+          <form
+            id="prepayment-form"
+            onSubmit={handlePrepayment}
+            className="space-y-4"
+          >
+            <div className="flex items-start gap-2 rounded-md border border-blue/20 bg-blue-soft px-3 py-2.5 text-sm text-blue">
               <HandCoins className="mt-0.5 h-4 w-4 shrink-0" />
               Este monto se descuenta del balance neto final.
             </div>
@@ -592,7 +998,7 @@ export default function PagosPage() {
                 type="number"
                 step="0.01"
                 min="0"
-                value={prepaymentForm.amount}
+                value={prepaymentForm.amount || ''}
                 onChange={(e) =>
                   setPrepaymentForm({
                     ...prepaymentForm,
@@ -609,7 +1015,10 @@ export default function PagosPage() {
                 type="date"
                 value={prepaymentForm.date}
                 onChange={(e) =>
-                  setPrepaymentForm({ ...prepaymentForm, date: e.target.value })
+                  setPrepaymentForm({
+                    ...prepaymentForm,
+                    date: e.target.value,
+                  })
                 }
                 required
                 className="ts-input"
@@ -621,7 +1030,10 @@ export default function PagosPage() {
                 type="text"
                 value={prepaymentForm.notes}
                 onChange={(e) =>
-                  setPrepaymentForm({ ...prepaymentForm, notes: e.target.value })
+                  setPrepaymentForm({
+                    ...prepaymentForm,
+                    notes: e.target.value,
+                  })
                 }
                 placeholder="Cliente, motivo…"
                 className="ts-input"
@@ -631,6 +1043,7 @@ export default function PagosPage() {
         </Modal>
       )}
 
+      {/* Modal: Deuda manual */}
       {modal === 'manual' && (
         <Modal
           title="Registrar deuda manual"
@@ -647,14 +1060,18 @@ export default function PagosPage() {
             </>
           }
         >
-          <form id="manual-form" onSubmit={handleManualDebt} className="space-y-4">
+          <form
+            id="manual-form"
+            onSubmit={handleManualDebt}
+            className="space-y-4"
+          >
             <div>
               <label className="ts-label">Monto</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                value={manualForm.amount}
+                value={manualForm.amount || ''}
                 onChange={(e) =>
                   setManualForm({
                     ...manualForm,
