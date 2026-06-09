@@ -40,9 +40,9 @@ export interface ProductBreakdown {
 export interface ResumenRow {
   date: string
   products: Record<string, ProductBreakdown>
-  warehouseQty: number
+  warehouseBoxes: number
   warehouseValue: number
-  distributionQty: number
+  distributionBoxes: number
   distributionValue: number
   payments: number
   remaining: number
@@ -78,29 +78,29 @@ function ProductCell({ boxes, value }: { boxes: number; value: number }) {
 }
 
 function ValueCell({
-  qty,
+  boxes,
   value,
   label,
   qtyClassName,
   valueClassName,
 }: {
-  qty: number
+  boxes: number
   value: number
   label: string
   qtyClassName?: string
   valueClassName?: string
 }) {
-  const hasQty = qty > 0
+  const hasBoxes = boxes > 0
   const hasValue = value > 0
   return (
     <div className="flex flex-col gap-0.5">
       <span
         className={cn(
           'text-base font-semibold tabular-nums leading-tight',
-          hasQty ? qtyClassName || 'text-ink' : 'text-muted-soft'
+          hasBoxes ? qtyClassName || 'text-ink' : 'text-muted-soft'
         )}
       >
-        {hasQty ? formatNumber(qty) : '—'}
+        {hasBoxes ? `${formatNumber(boxes)} cjs` : '—'}
       </span>
       {hasValue && (
         <span
@@ -151,14 +151,17 @@ export function DailyResumenTable({
         ),
         sortingFn: 'text',
       }),
-      ...productCols,
-      columnHelper.accessor('warehouseQty', {
+      columnHelper.group({
+        header: 'Producido por fábrica',
+        columns: productCols,
+      }),
+      columnHelper.accessor('warehouseBoxes', {
         header: 'Recogido',
         cell: (info) => {
           const row = info.row.original
           return (
             <ValueCell
-              qty={row.warehouseQty}
+              boxes={row.warehouseBoxes}
               value={row.warehouseValue}
               label="precio fábrica"
             />
@@ -166,13 +169,13 @@ export function DailyResumenTable({
         },
         sortingFn: 'basic',
       }),
-      columnHelper.accessor('distributionQty', {
+      columnHelper.accessor('distributionBoxes', {
         header: 'Vendido',
         cell: (info) => {
           const row = info.row.original
           return (
             <ValueCell
-              qty={row.distributionQty}
+              boxes={row.distributionBoxes}
               value={row.distributionValue}
               label="ventas"
               qtyClassName="text-primary"
@@ -214,9 +217,9 @@ export function DailyResumenTable({
   const totals = useMemo(() => {
     const t = {
       products: {} as Record<string, { boxes: number; value: number }>,
-      warehouseQty: 0,
+      warehouseBoxes: 0,
       warehouseValue: 0,
-      distributionQty: 0,
+      distributionBoxes: 0,
       distributionValue: 0,
       payments: 0,
     }
@@ -229,9 +232,9 @@ export function DailyResumenTable({
           t.products[prod.id].value += b.value
         }
       }
-      t.warehouseQty += row.warehouseQty
+      t.warehouseBoxes += row.warehouseBoxes
       t.warehouseValue += row.warehouseValue
-      t.distributionQty += row.distributionQty
+      t.distributionBoxes += row.distributionBoxes
       t.distributionValue += row.distributionValue
       t.payments += row.payments
     }
@@ -248,16 +251,6 @@ export function DailyResumenTable({
 
   return (
     <section className="overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium text-ink">Resumen</h2>
-        </div>
-        <span className="text-xs text-muted">
-          {rows.length} día{rows.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
       {/* Financial summary header */}
       <div className="grid grid-cols-2 gap-3 border-b border-hairline bg-surface/40 px-5 py-4 sm:px-6">
         <div className="flex items-center gap-3 rounded-lg border border-hairline-soft bg-ash/50 px-4 py-3">
@@ -311,10 +304,14 @@ export function DailyResumenTable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink"
+                    colSpan={header.colSpan}
+                    className={cn(
+                      'cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink',
+                      header.colSpan > 1 && 'text-center'
+                    )}
                     onClick={header.column.getToggleSortingHandler()}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <div className={cn('flex items-center gap-1.5', header.colSpan > 1 && 'justify-center')}>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getIsSorted() === 'asc' ? (
                         <ChevronUp className="h-3.5 w-3.5 text-primary" />
@@ -355,14 +352,14 @@ export function DailyResumenTable({
               ))}
               <td className="whitespace-nowrap px-4 py-3">
                 <ValueCell
-                  qty={totals.warehouseQty}
+                  boxes={totals.warehouseBoxes}
                   value={totals.warehouseValue}
                   label="precio fábrica"
                 />
               </td>
               <td className="whitespace-nowrap px-4 py-3">
                 <ValueCell
-                  qty={totals.distributionQty}
+                  boxes={totals.distributionBoxes}
                   value={totals.distributionValue}
                   label="ventas"
                   qtyClassName="text-primary"

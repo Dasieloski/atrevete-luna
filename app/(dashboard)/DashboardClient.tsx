@@ -362,11 +362,27 @@ export default function DashboardClient() {
         lastRemaining = allTimeDebtBalance[dateStr]
       }
 
+      const warehouseBoxes = day
+        ? Object.entries(day.transfers).reduce((s, [prodId, units]) => {
+            const prod = allTimeData.products.find((p) => p.id === prodId)
+            const upb = prod?.unitsPerBox ?? 1
+            return s + (upb > 0 ? Math.floor(units / upb) : units)
+          }, 0)
+        : 0
+
+      const distributionBoxes = day
+        ? Object.entries(day.sales).reduce((s, [prodId, saleData]) => {
+            const prod = allTimeData.products.find((p) => p.id === prodId)
+            const upb = prod?.unitsPerBox ?? 1
+            return s + (upb > 0 ? Math.floor(saleData.quantity / upb) : saleData.quantity)
+          }, 0)
+        : 0
+
       const row: ResumenRow = {
         date: dateStr,
-        warehouseQty: day ? Object.values(day.transfers).reduce((s, v) => s + v, 0) : 0,
+        warehouseBoxes,
         warehouseValue: day ? day.warehouseValue : 0,
-        distributionQty: day ? Object.values(day.sales).reduce((s, v) => s + v.quantity, 0) : 0,
+        distributionBoxes,
         distributionValue: day ? day.distributionValue : 0,
         payments: day ? day.payments : 0,
         remaining: lastRemaining,
@@ -519,9 +535,47 @@ export default function DashboardClient() {
                 <Table2 className="h-4 w-4 text-muted" />
                 <h2 className="text-sm font-medium text-ink">Resumen</h2>
               </div>
-              <span className="text-xs text-muted">
-                {allTimeSummaryRows.length} día{allTimeSummaryRows.length !== 1 ? 's' : ''}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    setCalendarMonth(
+                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+                    )
+                  }
+                  className="ts-btn-icon"
+                  aria-label="Mes anterior"
+                  title="Mes anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <input
+                  type="month"
+                  value={`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [y, m] = e.target.value.split('-').map(Number)
+                    setCalendarMonth(new Date(y, m - 1, 1))
+                  }}
+                  className="rounded-md border border-hairline bg-surface px-2 py-1 text-xs font-medium text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  onClick={() =>
+                    setCalendarMonth(
+                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
+                    )
+                  }
+                  className="ts-btn-icon"
+                  aria-label="Mes siguiente"
+                  title="Mes siguiente"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCalendarMonth(new Date())}
+                  className="ml-1 rounded-md border border-hairline bg-ash/50 px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-ash hover:text-ink"
+                >
+                  Hoy
+                </button>
+              </div>
             </div>
             <DailyResumenTable
               rows={allTimeSummaryRows}
