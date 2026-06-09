@@ -8,6 +8,8 @@ import {
   BarChart3,
   AlertTriangle,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Factory,
   ShoppingCart,
   TrendingUp,
@@ -21,7 +23,7 @@ import { motion } from 'motion/react'
 import { DateRangeFilter } from '@/src/components/DateRangeFilter'
 import { ProductionCalendar } from '@/src/components/dashboard/ProductionCalendar'
 import { DailySummaryTable } from '@/src/components/dashboard/DailySummaryTable'
-import { DailyResumenTable } from '@/src/components/dashboard/DailyResumenTable'
+import { DailyResumenTable, type ResumenRow } from '@/src/components/dashboard/DailyResumenTable'
 import { DashboardCharts } from '@/src/components/dashboard/DashboardCharts'
 import { PageHeader } from '@/src/components/ui/PageHeader'
 import { Button } from '@/src/components/ui/Button'
@@ -229,6 +231,7 @@ export default function DashboardClient() {
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>('calendar')
   const [allTimeData, setAllTimeData] = useState<DashboardData | null>(null)
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
 
   const refresh = useCallback(async (range: DateRange) => {
     setLoading(true)
@@ -321,44 +324,67 @@ export default function DashboardClient() {
     )
   }, [allTimeData])
 
+  // Running debt balance for every date that has data
   const allTimeDebtBalance = useMemo(() => {
     if (!allTimeData) return {}
     const dates = Object.keys(allTimeDailyData).sort()
     if (dates.length === 0) return {}
-    const result: Record<string, { debtCreated: number; debtPaid: number; remaining: number }> = {}
+    const result: Record<string, number> = {}
     let cumulativeDebt = 0
     let cumulativePaid = 0
     for (const date of dates) {
       const day = allTimeDailyData[date]
       cumulativeDebt += day.factoryValue
       cumulativePaid += day.payments
-      result[date] = {
-        debtCreated: cumulativeDebt,
-        debtPaid: cumulativePaid,
-        remaining: +(cumulativeDebt - cumulativePaid).toFixed(2),
-      }
+      result[date] = +(cumulativeDebt - cumulativePaid).toFixed(2)
     }
     return result
   }, [allTimeDailyData, allTimeData])
 
   const allTimeSummaryRows = useMemo(() => {
-    const dates = Object.keys(allTimeDailyData).sort().reverse()
-    return dates.map((date) => {
-      const day = allTimeDailyData[date]
-      const debt = allTimeDebtBalance[date]
-      return {
-        date,
-        factoryQty: Object.values(day.production).reduce((s, v) => s + v, 0),
-        factoryValue: day.factoryValue,
-        warehouseQty: Object.values(day.transfers).reduce((s, v) => s + v, 0),
-        warehouseValue: day.warehouseValue,
-        distributionQty: Object.values(day.sales).reduce((s, v) => s + v.quantity, 0),
-        distributionValue: day.distributionValue,
-        payments: day.payments,
-        remaining: debt?.remaining ?? 0,
+    if (!allTimeData) return []
+
+    const year = calendarMonth.getFullYear()
+    const month = calendarMonth.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    // All dates with data, sorted
+    const dataDates = Object.keys(allTimeDailyData).sort()
+    let lastRemaining = 0
+
+    const rows: ResumenRow[] = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const day = allTimeDailyData[dateStr]
+
+      // Find remaining for this date
+      if (allTimeDebtBalance[dateStr] !== undefined) {
+        lastRemaining = allTimeDebtBalance[dateStr]
       }
-    })
-  }, [allTimeDailyData, allTimeDebtBalance])
+
+      const row: ResumenRow = {
+        date: dateStr,
+        warehouseQty: day ? Object.values(day.transfers).reduce((s, v) => s + v, 0) : 0,
+        warehouseValue: day ? day.warehouseValue : 0,
+        distributionQty: day ? Object.values(day.sales).reduce((s, v) => s + v.quantity, 0) : 0,
+        distributionValue: day ? day.distributionValue : 0,
+        payments: day ? day.payments : 0,
+        remaining: lastRemaining,
+        products: {},
+      }
+
+      for (const prod of allTimeData.products) {
+        const units = day ? (day.production[prod.id] || 0) : 0
+        const boxes = prod.unitsPerBox > 0 ? Math.floor(units / prod.unitsPerBox) : 0
+        const value = units * (prod.priceWarehouse || 0)
+        row.products[prod.id] = { boxes, value }
+      }
+
+      rows.push(row)
+    }
+
+    return rows.reverse()
+  }, [allTimeDailyData, allTimeDebtBalance, allTimeData, calendarMonth])
 
   const allTimeTotalPending = useMemo(() => {
     if (allTimeSummaryRows.length === 0) return 0
@@ -369,11 +395,6 @@ export default function DashboardClient() {
   const allTimeTotalPaid = useMemo(() => {
     return allTimeSummaryRows.reduce((s, r) => s + r.payments, 0)
   }, [allTimeSummaryRows])
-
-  const currentMonth = useMemo(() => {
-    if (dateRange.from) return new Date(dateRange.from + 'T12:00:00')
-    return new Date()
-  }, [dateRange])
 
   const totalProduction = useMemo(
     () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
@@ -504,6 +525,7 @@ export default function DashboardClient() {
             </div>
             <DailyResumenTable
               rows={allTimeSummaryRows}
+              products={allTimeData?.products ?? []}
               totalPending={allTimeTotalPending}
               totalPaid={allTimeTotalPaid}
             />
@@ -551,12 +573,36 @@ export default function DashboardClient() {
                 <h2 className="text-sm font-medium text-ink">
                   Calendario de producción
                 </h2>
-                <span className="text-xs text-muted-soft">
-                  {currentMonth.toLocaleDateString('es-ES', {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+                      )
+                    }
+                    className="ts-btn-icon"
+                    aria-label="Mes anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[120px] text-center text-xs text-muted-soft">
+                    {calendarMonth.toLocaleDateString('es-ES', {
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setCalendarMonth(
+                        new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
+                      )
+                    }
+                    className="ts-btn-icon"
+                    aria-label="Mes siguiente"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               <p className="mb-4 text-xs text-muted">
                 Cada celda muestra la producción del día por producto.
@@ -564,7 +610,7 @@ export default function DashboardClient() {
               <ProductionCalendar
                 products={data.products}
                 dailyData={dailyData}
-                currentMonth={currentMonth}
+                currentMonth={calendarMonth}
                 dateRange={dateRange}
               />
             </div>

@@ -24,10 +24,22 @@ import {
 import { formatDate, formatCurrency, formatNumber } from '@/src/lib/format'
 import { cn } from '@/src/lib/utils'
 
-interface ResumenRow {
+export interface ProductInfo {
+  id: string
+  name: string
+  priceWarehouse: number
+  priceDistribution: number
+  unitsPerBox: number
+}
+
+export interface ProductBreakdown {
+  boxes: number
+  value: number
+}
+
+export interface ResumenRow {
   date: string
-  factoryQty: number
-  factoryValue: number
+  products: Record<string, ProductBreakdown>
   warehouseQty: number
   warehouseValue: number
   distributionQty: number
@@ -36,10 +48,33 @@ interface ResumenRow {
   remaining: number
 }
 
-interface DailyResumenTableProps {
+export interface DailyResumenTableProps {
   rows: ResumenRow[]
+  products: ProductInfo[]
   totalPending: number
   totalPaid: number
+}
+
+function ProductCell({ boxes, value }: { boxes: number; value: number }) {
+  const hasBoxes = boxes > 0
+  const hasValue = value > 0
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        className={cn(
+          'text-base font-semibold tabular-nums leading-tight',
+          hasBoxes ? 'text-ink' : 'text-muted-soft'
+        )}
+      >
+        {hasBoxes ? formatNumber(boxes) : '—'}
+      </span>
+      {hasValue && (
+        <span className="text-[11px] tabular-nums leading-tight text-muted">
+          {formatCurrency(value)} precio fábrica
+        </span>
+      )}
+    </div>
+  )
 }
 
 function ValueCell({
@@ -83,6 +118,7 @@ function ValueCell({
 
 export function DailyResumenTable({
   rows,
+  products,
   totalPending,
   totalPaid,
 }: DailyResumenTableProps) {
@@ -92,6 +128,19 @@ export function DailyResumenTable({
   const columnHelper = createColumnHelper<ResumenRow>()
 
   const columns = useMemo(() => {
+    const productCols = products.map((prod) =>
+      columnHelper.accessor((row) => row.products[prod.id]?.boxes ?? 0, {
+        id: `prod_${prod.id}`,
+        header: prod.name.split(' ')[0],
+        cell: (info) => {
+          const row = info.row.original
+          const breakdown = row.products[prod.id]
+          return <ProductCell boxes={breakdown?.boxes ?? 0} value={breakdown?.value ?? 0} />
+        },
+        sortingFn: 'basic',
+      })
+    )
+
     return [
       columnHelper.accessor('date', {
         header: 'Fecha',
@@ -102,20 +151,7 @@ export function DailyResumenTable({
         ),
         sortingFn: 'text',
       }),
-      columnHelper.accessor('factoryQty', {
-        header: 'Fabricado',
-        cell: (info) => {
-          const row = info.row.original
-          return (
-            <ValueCell
-              qty={row.factoryQty}
-              value={row.factoryValue}
-              label="precio fábrica"
-            />
-          )
-        },
-        sortingFn: 'basic',
-      }),
+      ...productCols,
       columnHelper.accessor('warehouseQty', {
         header: 'Recogido',
         cell: (info) => {
@@ -161,12 +197,12 @@ export function DailyResumenTable({
         sortingFn: 'basic',
       }),
     ]
-  }, [columnHelper])
+  }, [columnHelper, products])
 
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize: 100 } },
+    state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize: 31 } },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
@@ -174,6 +210,33 @@ export function DailyResumenTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   })
+
+  const totals = useMemo(() => {
+    const t = {
+      products: {} as Record<string, { boxes: number; value: number }>,
+      warehouseQty: 0,
+      warehouseValue: 0,
+      distributionQty: 0,
+      distributionValue: 0,
+      payments: 0,
+    }
+    for (const row of rows) {
+      for (const prod of products) {
+        if (!t.products[prod.id]) t.products[prod.id] = { boxes: 0, value: 0 }
+        const b = row.products[prod.id]
+        if (b) {
+          t.products[prod.id].boxes += b.boxes
+          t.products[prod.id].value += b.value
+        }
+      }
+      t.warehouseQty += row.warehouseQty
+      t.warehouseValue += row.warehouseValue
+      t.distributionQty += row.distributionQty
+      t.distributionValue += row.distributionValue
+      t.payments += row.payments
+    }
+    return t
+  }, [rows, products])
 
   if (rows.length === 0) {
     return (
@@ -279,6 +342,43 @@ export function DailyResumenTable({
                 ))}
               </tr>
             ))}
+            {/* Totals row */}
+            <tr className="border-b border-hairline bg-ash/50 font-semibold">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-ink">Total</td>
+              {products.map((prod) => (
+                <td key={prod.id} className="whitespace-nowrap px-4 py-3">
+                  <ProductCell
+                    boxes={totals.products[prod.id]?.boxes ?? 0}
+                    value={totals.products[prod.id]?.value ?? 0}
+                  />
+                </td>
+              ))}
+              <td className="whitespace-nowrap px-4 py-3">
+                <ValueCell
+                  qty={totals.warehouseQty}
+                  value={totals.warehouseValue}
+                  label="precio fábrica"
+                />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <ValueCell
+                  qty={totals.distributionQty}
+                  value={totals.distributionValue}
+                  label="ventas"
+                  qtyClassName="text-primary"
+                  valueClassName="text-primary/80"
+                />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                {totals.payments > 0 ? (
+                  <span className="text-sm font-semibold tabular-nums text-success">
+                    {formatCurrency(totals.payments)}
+                  </span>
+                ) : (
+                  <span className="text-sm tabular-nums text-muted-soft">—</span>
+                )}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -296,7 +396,7 @@ export function DailyResumenTable({
               onChange={(e) => table.setPageSize(Number(e.target.value))}
               className="rounded-md border border-hairline bg-surface px-2 py-1 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              {[50, 100, 200, 300].map((size) => (
+              {[31, 50, 100, 200, 300].map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>
