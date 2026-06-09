@@ -21,12 +21,13 @@ import { motion } from 'motion/react'
 import { DateRangeFilter } from '@/src/components/DateRangeFilter'
 import { ProductionCalendar } from '@/src/components/dashboard/ProductionCalendar'
 import { DailySummaryTable } from '@/src/components/dashboard/DailySummaryTable'
+import { DailyResumenTable } from '@/src/components/dashboard/DailyResumenTable'
 import { DashboardCharts } from '@/src/components/dashboard/DashboardCharts'
 import { PageHeader } from '@/src/components/ui/PageHeader'
 import { Button } from '@/src/components/ui/Button'
 import { StatCard } from '@/src/components/StatCard'
 import { Tabs } from '@/src/components/ui/Tabs'
-import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
+
 import { Badge } from '@/src/components/ui/Badge'
 import { cn } from '@/src/lib/utils'
 import type { DateRange } from '@/src/lib/business'
@@ -227,6 +228,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>('calendar')
+  const [allTimeData, setAllTimeData] = useState<DashboardData | null>(null)
 
   const refresh = useCallback(async (range: DateRange) => {
     setLoading(true)
@@ -248,6 +250,23 @@ export default function DashboardClient() {
   useEffect(() => {
     refresh(dateRange)
   }, [dateRange, refresh])
+
+  useEffect(() => {
+    const loadAllTime = async () => {
+      try {
+        const res = await fetch(
+          `/api/dashboard-data?from=1970-01-01&to=${todayInputDate()}`
+        )
+        if (res.ok) {
+          const json: DashboardData = await res.json()
+          setAllTimeData(json)
+        }
+      } catch {
+        // silently fail
+      }
+    }
+    loadAllTime()
+  }, [])
 
   const dailyData = useMemo(() => {
     if (!data) return {}
@@ -291,6 +310,66 @@ export default function DashboardClient() {
     return result
   }, [dailyData, data])
 
+  const allTimeDailyData = useMemo(() => {
+    if (!allTimeData) return {}
+    return buildDailyData(
+      allTimeData.productions,
+      allTimeData.transfers,
+      allTimeData.sales,
+      allTimeData.payments,
+      allTimeData.products
+    )
+  }, [allTimeData])
+
+  const allTimeDebtBalance = useMemo(() => {
+    if (!allTimeData) return {}
+    const dates = Object.keys(allTimeDailyData).sort()
+    if (dates.length === 0) return {}
+    const result: Record<string, { debtCreated: number; debtPaid: number; remaining: number }> = {}
+    let cumulativeDebt = 0
+    let cumulativePaid = 0
+    for (const date of dates) {
+      const day = allTimeDailyData[date]
+      cumulativeDebt += day.factoryValue
+      cumulativePaid += day.payments
+      result[date] = {
+        debtCreated: cumulativeDebt,
+        debtPaid: cumulativePaid,
+        remaining: +(cumulativeDebt - cumulativePaid).toFixed(2),
+      }
+    }
+    return result
+  }, [allTimeDailyData, allTimeData])
+
+  const allTimeSummaryRows = useMemo(() => {
+    const dates = Object.keys(allTimeDailyData).sort().reverse()
+    return dates.map((date) => {
+      const day = allTimeDailyData[date]
+      const debt = allTimeDebtBalance[date]
+      return {
+        date,
+        factoryQty: Object.values(day.production).reduce((s, v) => s + v, 0),
+        factoryValue: day.factoryValue,
+        warehouseQty: Object.values(day.transfers).reduce((s, v) => s + v, 0),
+        warehouseValue: day.warehouseValue,
+        distributionQty: Object.values(day.sales).reduce((s, v) => s + v.quantity, 0),
+        distributionValue: day.distributionValue,
+        payments: day.payments,
+        remaining: debt?.remaining ?? 0,
+      }
+    })
+  }, [allTimeDailyData, allTimeDebtBalance])
+
+  const allTimeTotalPending = useMemo(() => {
+    if (allTimeSummaryRows.length === 0) return 0
+    const lastRemaining = allTimeSummaryRows[0].remaining
+    return lastRemaining > 0 ? lastRemaining : 0
+  }, [allTimeSummaryRows])
+
+  const allTimeTotalPaid = useMemo(() => {
+    return allTimeSummaryRows.reduce((s, r) => s + r.payments, 0)
+  }, [allTimeSummaryRows])
+
   const currentMonth = useMemo(() => {
     if (dateRange.from) return new Date(dateRange.from + 'T12:00:00')
     return new Date()
@@ -308,31 +387,6 @@ export default function DashboardClient() {
     () => data?.sales.reduce((s, sl) => s + sl.quantity, 0) ?? 0,
     [data]
   )
-
-  // Table rows for the new daily summary
-  const summaryRows = useMemo(() => {
-    const dates = Object.keys(dailyData).sort().reverse()
-    return dates.map((date) => {
-      const day = dailyData[date]
-      const debt = dailyDebtBalance[date]
-      return {
-        date,
-        factoryQty: Object.values(day.production).reduce((s, v) => s + v, 0),
-        factoryValue: day.factoryValue,
-        warehouseQty: Object.values(day.transfers).reduce((s, v) => s + v, 0),
-        warehouseValue: day.warehouseValue,
-        distributionQty: Object.values(day.sales).reduce((s, v) => s + v.quantity, 0),
-        distributionValue: day.distributionValue,
-        payments: day.payments,
-        remaining: debt?.remaining ?? 0,
-      }
-    })
-  }, [dailyData, dailyDebtBalance])
-
-  const totalFactoryValue = summaryRows.reduce((s, r) => s + r.factoryValue, 0)
-  const totalWarehouseValue = summaryRows.reduce((s, r) => s + r.warehouseValue, 0)
-  const totalDistributionValue = summaryRows.reduce((s, r) => s + r.distributionValue, 0)
-  const totalPayments = summaryRows.reduce((s, r) => s + r.payments, 0)
 
   return (
     <div>
@@ -437,107 +491,22 @@ export default function DashboardClient() {
 
       {data && !loading && (
         <div className="space-y-6">
-          {/* Daily Summary Table */}
+          {/* Resumen */}
           <section className="ts-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
               <div className="flex items-center gap-2">
                 <Table2 className="h-4 w-4 text-muted" />
-                <h2 className="text-sm font-medium text-ink">Resumen diario</h2>
+                <h2 className="text-sm font-medium text-ink">Resumen</h2>
               </div>
               <span className="text-xs text-muted">
-                {summaryRows.length} día{summaryRows.length !== 1 ? 's' : ''}
+                {allTimeSummaryRows.length} día{allTimeSummaryRows.length !== 1 ? 's' : ''}
               </span>
             </div>
-            
-            <div className="overflow-x-auto">
-              <Table>
-                <THead>
-                  <TR>
-                    <TH rowSpan={2} className="align-bottom">Fecha</TH>
-                    <TH colSpan={2} className="text-center border-b border-hairline-soft">Fábrica</TH>
-                    <TH colSpan={2} className="text-center border-b border-hairline-soft">Almacén (Recogida)</TH>
-                    <TH colSpan={2} className="text-center border-b border-hairline-soft">Distribución</TH>
-                    <TH rowSpan={2} className="text-right align-bottom">Deuda pagada</TH>
-                    <TH rowSpan={2} className="text-right align-bottom">Saldo deuda</TH>
-                  </TR>
-                  <TR>
-                    <TH className="text-right text-[10px]">Cantidad</TH>
-                    <TH className="text-right text-[10px]">Precio</TH>
-                    <TH className="text-right text-[10px]">Cantidad</TH>
-                    <TH className="text-right text-[10px]">Precio</TH>
-                    <TH className="text-right text-[10px]">Cantidad</TH>
-                    <TH className="text-right text-[10px]">Precio</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {summaryRows.map((row) => (
-                    <TR key={row.date}>
-                      <TD className="whitespace-nowrap font-mono text-[13px]">
-                        {formatDate(row.date)}
-                      </TD>
-                      <TD className="text-right font-mono">
-                        {row.factoryQty > 0 ? formatNumber(row.factoryQty) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-ink">
-                        {row.factoryValue > 0 ? formatCurrency(row.factoryValue) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono">
-                        {row.warehouseQty > 0 ? formatNumber(row.warehouseQty) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-ink">
-                        {row.warehouseValue > 0 ? formatCurrency(row.warehouseValue) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono">
-                        {row.distributionQty > 0 ? formatNumber(row.distributionQty) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-ink">
-                        {row.distributionValue > 0 ? formatCurrency(row.distributionValue) : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-success">
-                        {row.payments > 0 ? formatCurrency(row.payments) : '—'}
-                      </TD>
-                      <TD className={cn(
-                        'text-right font-mono font-semibold',
-                        row.remaining < -0.01 ? 'text-success' : row.remaining > 0.01 ? 'text-error' : 'text-ink'
-                      )}>
-                        {row.remaining !== 0 ? formatCurrency(Math.abs(row.remaining)) : '—'}
-                        {row.remaining < -0.01 && (
-                          <Badge tone="success" className="ml-1">Fábrica debe</Badge>
-                        )}
-                        {row.remaining > 0.01 && (
-                          <Badge tone="warning" className="ml-1">Pendiente</Badge>
-                        )}
-                      </TD>
-                    </TR>
-                  ))}
-                  {/* Totals row */}
-                  <TR className="bg-surface font-medium hover:bg-surface">
-                    <TD className="text-right uppercase tracking-wider text-ink">Total</TD>
-                    <TD colSpan={2} className="text-right font-mono text-primary">
-                      {formatCurrency(totalFactoryValue)}
-                    </TD>
-                    <TD colSpan={2} className="text-right font-mono text-primary">
-                      {formatCurrency(totalWarehouseValue)}
-                    </TD>
-                    <TD colSpan={2} className="text-right font-mono text-primary">
-                      {formatCurrency(totalDistributionValue)}
-                    </TD>
-                    <TD className="text-right font-mono text-success">
-                      {formatCurrency(totalPayments)}
-                    </TD>
-                    <TD className="text-right font-mono">
-                      {summaryRows.length > 0 && (
-                        <span className={cn(
-                          summaryRows[0].remaining < -0.01 ? 'text-success' : 'text-error'
-                        )}>
-                          {formatCurrency(Math.abs(summaryRows[0].remaining))}
-                        </span>
-                      )}
-                    </TD>
-                  </TR>
-                </TBody>
-              </Table>
-            </div>
+            <DailyResumenTable
+              rows={allTimeSummaryRows}
+              totalPending={allTimeTotalPending}
+              totalPaid={allTimeTotalPaid}
+            />
           </section>
 
           <div className="overflow-x-auto">
