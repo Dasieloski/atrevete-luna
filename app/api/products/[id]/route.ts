@@ -10,21 +10,29 @@ export async function PUT(
   const { error, user } = await requirePermission(request, 'productos', 'edit')
   if (error) return error
 
-  const { id } = await params
-  const data = await request.json()
-  const product = await prisma.product.update({ where: { id }, data })
+  try {
+    const { id } = await params
+    const data = await request.json()
+    const product = await prisma.product.update({ where: { id }, data })
 
-  await logAudit({
-    userId: user.id,
-    userName: user.name,
-    action: 'edit',
-    entity: 'product',
-    entityId: product.id,
-    entityName: product.name,
-    details: data,
-  })
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'edit',
+      entity: 'product',
+      entityId: product.id,
+      entityName: product.name,
+      details: data,
+    })
 
-  return NextResponse.json(product)
+    return NextResponse.json(product)
+  } catch (error) {
+    console.error('Product PUT error:', error)
+    return NextResponse.json({
+      error: 'Error al actualizar producto',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
 }
 
 export async function DELETE(
@@ -34,11 +42,12 @@ export async function DELETE(
   const { error, user } = await requirePermission(request, 'productos', 'delete')
   if (error) return error
 
-  const { id } = await params
+  try {
+    const { id } = await params
 
-  const productToDelete = await prisma.product.findUnique({ where: { id }, select: { name: true } })
+    const productToDelete = await prisma.product.findUnique({ where: { id }, select: { name: true } })
 
-  await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
     await tx.waste.deleteMany({ where: { productId: id } })
     await tx.transfer.deleteMany({ where: { productId: id } })
     await tx.reservation.deleteMany({ where: { productId: id } })
@@ -61,16 +70,23 @@ export async function DELETE(
     }
 
     await tx.product.delete({ where: { id } })
-  })
+    })
 
-  await logAudit({
-    userId: user.id,
-    userName: user.name,
-    action: 'delete',
-    entity: 'product',
-    entityId: id,
-    entityName: productToDelete?.name || id,
-  })
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'delete',
+      entity: 'product',
+      entityId: id,
+      entityName: productToDelete?.name || id,
+    })
 
-  return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Product DELETE error:', error)
+    return NextResponse.json({
+      error: 'Error al eliminar producto',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
 }

@@ -75,60 +75,81 @@ export async function PUT(request: Request) {
   const { error, user } = await requirePermission(request, 'produccion', 'edit')
   if (error) return error
 
-  const data = await request.json()
-  const quantity = data.boxes * data.unitsPerBox
+  try {
+    const data = await request.json()
 
-  const record = await prisma.production.update({
-    where: { id: data.id },
-    data: {
-      boxes: data.boxes,
-      unitsPerBox: data.unitsPerBox,
-      quantity,
-      status: data.status,
-      date: data.date,
-      notes: data.notes,
-      editedBy: data.editedBy || 'admin',
-      editedAt: new Date(),
-    },
-  })
+    if (!data.id) {
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+    }
 
-  await logAudit({
-    userId: user.id,
-    userName: user.name,
-    action: 'edit',
-    entity: 'production',
-    entityId: record.id,
-    entityName: `Producción ${record.id.slice(0, 8)}`,
-    details: { boxes: record.boxes, quantity: record.quantity },
-  })
+    const quantity = data.boxes * data.unitsPerBox
 
-  return NextResponse.json(record)
+    const record = await prisma.production.update({
+      where: { id: data.id },
+      data: {
+        boxes: data.boxes,
+        unitsPerBox: data.unitsPerBox,
+        quantity,
+        status: data.status || null,
+        date: data.date ? new Date(data.date) : undefined,
+        notes: data.notes,
+        editedBy: data.editedBy || 'admin',
+        editedAt: new Date(),
+      },
+    })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'edit',
+      entity: 'production',
+      entityId: record.id,
+      entityName: `Producción ${record.id.slice(0, 8)}`,
+      details: { boxes: record.boxes, quantity: record.quantity },
+    })
+
+    return NextResponse.json(record)
+  } catch (error) {
+    console.error('Production PUT error:', error)
+    return NextResponse.json({
+      error: 'Error al actualizar producción',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
+  }
 }
 
 export async function DELETE(request: Request) {
   const { error, user } = await requirePermission(request, 'produccion', 'delete')
   if (error) return error
 
-  const { searchParams } = new URL(request.url)
-  const id = searchParams.get('id')
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
 
-  if (!id) {
-    return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+    }
+
+    const record = await prisma.production.findUnique({ where: { id }, select: { id: true, boxes: true, quantity: true } })
+
+    await prisma.production.delete({ where: { id } })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'delete',
+      entity: 'production',
+      entityId: id,
+      entityName: `Producción ${id.slice(0, 8)}`,
+      details: record ? { boxes: record.boxes, quantity: record.quantity } : undefined,
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Production DELETE error:', error)
+    return NextResponse.json({
+      error: 'Error al eliminar producción',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
-
-  const record = await prisma.production.findUnique({ where: { id }, select: { id: true, boxes: true, quantity: true } })
-
-  await prisma.production.delete({ where: { id } })
-
-  await logAudit({
-    userId: user.id,
-    userName: user.name,
-    action: 'delete',
-    entity: 'production',
-    entityId: id,
-    entityName: `Producción ${id.slice(0, 8)}`,
-    details: record ? { boxes: record.boxes, quantity: record.quantity } : undefined,
-  })
-
-  return NextResponse.json({ success: true })
 }
