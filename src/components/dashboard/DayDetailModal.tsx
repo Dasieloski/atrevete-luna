@@ -31,12 +31,18 @@ interface DayData {
   distributionValue: number
 }
 
+interface StockData {
+  factoryStockCajas: number
+  warehouseStockCajas: number
+}
+
 interface DayDetailModalProps {
   open: boolean
   onClose: () => void
   date: string
   dayData: DayData | undefined
   products: ProductInfo[]
+  stockData?: StockData
 }
 
 const COLORS = [
@@ -45,7 +51,7 @@ const COLORS = [
   { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', bar: '#F79009' },
 ]
 
-export function DayDetailModal({ open, onClose, date, dayData, products }: DayDetailModalProps) {
+export function DayDetailModal({ open, onClose, date, dayData, products, stockData }: DayDetailModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -241,46 +247,38 @@ export function DayDetailModal({ open, onClose, date, dayData, products }: DayDe
                 </div>
               )}
 
-              {/* Resumen financiero del día */}
-              <div className="rounded-xl border border-hairline bg-ash/20 p-4">
-                <h5 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">
-                  Resumen financiero del día
-                </h5>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Valor producción</span>
-                    <span className="font-semibold tabular-nums text-ink">
-                      {formatCurrency(dayData.factoryValue)}
+              {/* Resumen de stock */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-warning/20 bg-warning/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Factory className="h-4 w-4 text-warning" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-warning">
+                      Por recoger en fábrica
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Valor recogido</span>
-                    <span className="font-semibold tabular-nums text-ink">
-                      {formatCurrency(dayData.warehouseValue)}
+                  <span className="text-2xl font-bold tabular-nums text-ink">
+                    {formatNumber(stockData?.factoryStockCajas ?? 0)}
+                  </span>
+                  <span className="ml-1 text-xs text-muted">cjs</span>
+                  <p className="mt-1 text-xs text-muted">
+                    Stock acumulado en fábrica a este día
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-primary">
+                      En almacén
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">Valor ventas</span>
-                    <span className="font-semibold tabular-nums text-primary">
-                      {formatCurrency(dayData.distributionValue)}
-                    </span>
-                  </div>
-                  {dayData.payments > 0 && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted">Pagado</span>
-                      <span className="font-semibold tabular-nums text-success">
-                        − {formatCurrency(dayData.payments)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="mt-2 border-t border-hairline pt-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-ink">Balance del día</span>
-                      <span className="font-bold tabular-nums text-ink">
-                        {formatCurrency(dayData.distributionValue - dayData.payments)}
-                      </span>
-                    </div>
-                  </div>
+                  <span className="text-2xl font-bold tabular-nums text-ink">
+                    {formatNumber(stockData?.warehouseStockCajas ?? 0)}
+                  </span>
+                  <span className="ml-1 text-xs text-muted">cjs</span>
+                  <p className="mt-1 text-xs text-muted">
+                    Stock disponible en almacén a este día
+                  </p>
                 </div>
               </div>
             </div>

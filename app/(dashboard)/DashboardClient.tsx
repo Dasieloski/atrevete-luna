@@ -428,6 +428,38 @@ export default function DashboardClient() {
     return filtered
   }, [allTimeDailyData, allTimeData, calendarMonth])
 
+  // Running stock per day: factory stock (not yet picked up) and warehouse stock
+  const stockByDate = useMemo(() => {
+    if (!allTimeData) return {}
+    const dates = Object.keys(allTimeDailyData).sort()
+    const factoryStock: Record<string, number> = {}
+    const warehouseStock: Record<string, number> = {}
+    const result: Record<string, { factoryStockCajas: number; warehouseStockCajas: number }> = {}
+
+    for (const date of dates) {
+      const day = allTimeDailyData[date]
+      for (const prod of allTimeData.products) {
+        const produced = day.production[prod.id] || 0
+        const transferred = day.transfers[prod.id] || 0
+        const sold = day.sales[prod.id]?.quantity || 0
+
+        factoryStock[prod.id] = (factoryStock[prod.id] || 0) + produced - transferred
+        warehouseStock[prod.id] = (warehouseStock[prod.id] || 0) + transferred - sold
+      }
+
+      let factoryStockCajas = 0
+      let warehouseStockCajas = 0
+      for (const prod of allTimeData.products) {
+        const upb = prod.unitsPerBox || 1
+        factoryStockCajas += upb > 0 ? Math.floor((factoryStock[prod.id] || 0) / upb) : (factoryStock[prod.id] || 0)
+        warehouseStockCajas += upb > 0 ? Math.floor((warehouseStock[prod.id] || 0) / upb) : (warehouseStock[prod.id] || 0)
+      }
+
+      result[date] = { factoryStockCajas, warehouseStockCajas }
+    }
+    return result
+  }, [allTimeDailyData, allTimeData])
+
   const totalProduction = useMemo(
     () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
     [data]
@@ -723,6 +755,7 @@ export default function DashboardClient() {
             date={selectedDate ?? ''}
             dayData={selectedDate ? calendarDailyData[selectedDate] : undefined}
             products={allTimeData?.products ?? []}
+            stockData={selectedDate ? stockByDate[selectedDate] : undefined}
           />
         </div>
       )}
