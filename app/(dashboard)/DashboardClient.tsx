@@ -412,6 +412,20 @@ export default function DashboardClient() {
     return allTimeSummaryRows.reduce((s, r) => s + r.payments, 0)
   }, [allTimeSummaryRows])
 
+  const calendarDailyData = useMemo(() => {
+    if (!allTimeData) return {}
+    const year = calendarMonth.getFullYear()
+    const month = String(calendarMonth.getMonth() + 1).padStart(2, '0')
+    const prefix = `${year}-${month}`
+    const filtered: Record<string, DayProduction> = {}
+    for (const [date, day] of Object.entries(allTimeDailyData)) {
+      if (date.startsWith(prefix)) {
+        filtered[date] = day
+      }
+    }
+    return filtered
+  }, [allTimeDailyData, allTimeData, calendarMonth])
+
   const totalProduction = useMemo(
     () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
     [data]
@@ -662,10 +676,9 @@ export default function DashboardClient() {
                 Cada celda muestra la producción del día por producto.
               </p>
               <ProductionCalendar
-                products={data.products}
-                dailyData={dailyData}
+                products={allTimeData?.products ?? []}
+                dailyData={calendarDailyData}
                 currentMonth={calendarMonth}
-                dateRange={dateRange}
               />
             </div>
           )}

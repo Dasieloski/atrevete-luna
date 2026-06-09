@@ -143,7 +143,7 @@ export function DailyResumenTable({
 
     return [
       columnHelper.accessor('date', {
-        header: 'Fecha',
+        header: '',
         cell: (info) => (
           <span className="whitespace-nowrap text-sm font-medium text-ink">
             {formatDate(info.getValue())}
@@ -156,7 +156,7 @@ export function DailyResumenTable({
         columns: productCols,
       }),
       columnHelper.accessor('warehouseBoxes', {
-        header: 'Recogido',
+        header: '',
         cell: (info) => {
           const row = info.row.original
           return (
@@ -170,7 +170,7 @@ export function DailyResumenTable({
         sortingFn: 'basic',
       }),
       columnHelper.accessor('distributionBoxes', {
-        header: 'Vendido',
+        header: '',
         cell: (info) => {
           const row = info.row.original
           return (
@@ -186,7 +186,7 @@ export function DailyResumenTable({
         sortingFn: 'basic',
       }),
       columnHelper.accessor('payments', {
-        header: 'Saldo Pagado',
+        header: '',
         cell: (info) => {
           const val = info.getValue()
           return val > 0 ? (
