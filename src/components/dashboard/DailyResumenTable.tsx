@@ -140,7 +140,7 @@ export function DailyResumenTable({
   totalPending,
   totalPaid,
 }: DailyResumenTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: true }])
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: false }])
   const [globalFilter, setGlobalFilter] = useState('')
 
   const columnHelper = createColumnHelper<ResumenRow>()

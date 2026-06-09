@@ -227,3 +227,19 @@ model SystemConfig {
   value      String
   updatedAt  DateTime @updatedAt
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String?
+  action     String   // create | edit | delete
+  entity     String   // user | product | sale | production | customer | expense | debt | role | transfer
+  entityId   String?
+  entityName String?
+  details    String?  // JSON string con cambios relevantes
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([action, entity])
+  @@index([createdAt])
+}

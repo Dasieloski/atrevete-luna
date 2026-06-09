@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/apiGuard'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(request: Request) {
   const { error } = await requirePermission(request, 'deudas', 'view')
@@ -26,10 +27,21 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requirePermission(request, 'deudas', 'create')
+  const { error, user } = await requirePermission(request, 'deudas', 'create')
   if (error) return error
 
   const data = await request.json()
   const debt = await prisma.debt.create({ data })
+
+  await logAudit({
+    userId: user.id,
+    userName: user.name,
+    action: 'create',
+    entity: 'debt',
+    entityId: debt.id,
+    entityName: `Deuda ${debt.id.slice(0, 8)}`,
+    details: { amount: debt.amount, type: debt.type },
+  })
+
   return NextResponse.json(debt)
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/apiGuard'
+import { logAudit } from '@/lib/audit'
 
 const VALID_TYPES = ['prepayment', 'partial', 'total']
 
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requirePermission(request, 'deudas', 'create')
+  const { error, user } = await requirePermission(request, 'deudas', 'create')
   if (error) return error
 
   try {
@@ -52,6 +53,17 @@ export async function POST(request: Request) {
           type: 'prepayment',
         },
       })
+
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        action: 'create',
+        entity: 'debt',
+        entityId: payment.id,
+        entityName: `Pago adelantado ${payment.id.slice(0, 8)}`,
+        details: { amount: payment.amount, type: payment.type },
+      })
+
       return NextResponse.json(payment)
     }
 
@@ -96,6 +108,16 @@ export async function POST(request: Request) {
       })
 
       return payment
+    })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'create',
+      entity: 'debt',
+      entityId: result.id,
+      entityName: `Pago ${result.id.slice(0, 8)}`,
+      details: { amount: result.amount, type: result.type, debtId: result.debtId },
     })
 
     return NextResponse.json(result)

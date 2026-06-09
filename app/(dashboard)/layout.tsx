@@ -21,6 +21,7 @@ type IconName =
   | 'configuracion'
   | 'roles'
   | 'usuarios'
+  | 'auditoria'
 
 const navSections: { title: string; items: Array<Omit<NavItem, 'icon' | 'module'> & { icon: IconName; module: AppModule }> }[] = [
   {
@@ -63,6 +64,7 @@ const navSections: { title: string; items: Array<Omit<NavItem, 'icon' | 'module'
       { href: '/configuracion', label: 'Configuración', icon: 'configuracion', module: 'configuracion' },
       { href: '/configuracion/roles', label: 'Roles y Permisos', icon: 'roles', module: 'roles' },
       { href: '/configuracion/usuarios', label: 'Usuarios', icon: 'usuarios', module: 'usuarios' },
+      { href: '/configuracion/auditoria', label: 'Auditoría', icon: 'auditoria', module: 'auditoria' },
     ],
   },
 ]

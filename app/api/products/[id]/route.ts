@@ -1,17 +1,29 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/apiGuard'
+import { logAudit } from '@/lib/audit'
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requirePermission(request, 'productos', 'edit')
+  const { error, user } = await requirePermission(request, 'productos', 'edit')
   if (error) return error
 
   const { id } = await params
   const data = await request.json()
   const product = await prisma.product.update({ where: { id }, data })
+
+  await logAudit({
+    userId: user.id,
+    userName: user.name,
+    action: 'edit',
+    entity: 'product',
+    entityId: product.id,
+    entityName: product.name,
+    details: data,
+  })
+
   return NextResponse.json(product)
 }
 
@@ -19,10 +31,12 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requirePermission(request, 'productos', 'delete')
+  const { error, user } = await requirePermission(request, 'productos', 'delete')
   if (error) return error
 
   const { id } = await params
+
+  const productToDelete = await prisma.product.findUnique({ where: { id }, select: { name: true } })
 
   await prisma.$transaction(async (tx) => {
     await tx.waste.deleteMany({ where: { productId: id } })
@@ -47,6 +61,15 @@ export async function DELETE(
     }
 
     await tx.product.delete({ where: { id } })
+  })
+
+  await logAudit({
+    userId: user.id,
+    userName: user.name,
+    action: 'delete',
+    entity: 'product',
+    entityId: id,
+    entityName: productToDelete?.name || id,
   })
 
   return NextResponse.json({ success: true })

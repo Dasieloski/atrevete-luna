@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromSession } from '@/lib/auth'
+import { logAudit } from '@/lib/audit'
 
 // PUT /api/roles/:id - Actualizar un rol
 export async function PUT(
@@ -42,6 +43,15 @@ export async function PUT(
       },
     })
 
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'edit',
+      entity: 'role',
+      entityId: role.id,
+      entityName: role.name,
+    })
+
     return NextResponse.json({ role })
   } catch {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 })
@@ -72,6 +82,17 @@ export async function DELETE(
         { status: 400 }
       )
     }
+
+    const roleToDelete = await prisma.role.findUnique({ where: { id }, select: { name: true } })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'delete',
+      entity: 'role',
+      entityId: id,
+      entityName: roleToDelete?.name || id,
+    })
 
     await prisma.role.delete({
       where: { id },

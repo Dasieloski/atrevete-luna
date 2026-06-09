@@ -13,6 +13,7 @@ export const APP_MODULES = [
   'configuracion',
   'roles',
   'usuarios',
+  'auditoria',
 ] as const;
 
 export type AppModule = (typeof APP_MODULES)[number];

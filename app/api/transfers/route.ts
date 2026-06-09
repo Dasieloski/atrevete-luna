@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/apiGuard'
+import { logAudit } from '@/lib/audit'
 
 export async function GET() {
   const { error } = await requirePermission(null as any, 'almacen', 'view')
@@ -14,7 +15,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requirePermission(request, 'almacen', 'create')
+  const { error, user } = await requirePermission(request, 'almacen', 'create')
   if (error) return error
 
   try {
@@ -67,6 +68,16 @@ export async function POST(request: Request) {
       create: { productId: data.productId, location: data.toLocation, quantity },
     })
 
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'create',
+      entity: 'transfer',
+      entityId: transfer.id,
+      entityName: `Transferencia ${transfer.id.slice(0, 8)}`,
+      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
+    })
+
     return NextResponse.json(transfer)
   } catch (error) {
     console.error('Transfer POST error:', error)
@@ -78,7 +89,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requirePermission(request, 'almacen', 'edit')
+  const { error, user } = await requirePermission(request, 'almacen', 'edit')
   if (error) return error
 
   try {
@@ -151,6 +162,16 @@ export async function PUT(request: Request) {
       create: { productId: transfer.productId, location: transfer.toLocation, quantity },
     })
 
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'edit',
+      entity: 'transfer',
+      entityId: transfer.id,
+      entityName: `Transferencia ${transfer.id.slice(0, 8)}`,
+      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
+    })
+
     return NextResponse.json(transfer)
   } catch (error) {
     console.error('Transfer PUT error:', error)
@@ -162,7 +183,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const { error } = await requirePermission(request, 'almacen', 'delete')
+  const { error, user } = await requirePermission(request, 'almacen', 'delete')
   if (error) return error
 
   try {
@@ -186,6 +207,16 @@ export async function DELETE(request: Request) {
     await prisma.warehouseStock.updateMany({
       where: { productId: transfer.productId, location: transfer.toLocation },
       data: { quantity: { decrement: transfer.quantity } },
+    })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'delete',
+      entity: 'transfer',
+      entityId: id,
+      entityName: `Transferencia ${id.slice(0, 8)}`,
+      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
     })
 
     await prisma.transfer.delete({ where: { id } })

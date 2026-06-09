@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getUserFromSession } from '@/lib/auth'
+import { logAudit } from '@/lib/audit'
 
 // GET /api/roles - Obtener todos los roles
 export async function GET() {
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
       include: {
         permissions: true,
       },
+    })
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'create',
+      entity: 'role',
+      entityId: role.id,
+      entityName: role.name,
     })
 
     return NextResponse.json({ role })

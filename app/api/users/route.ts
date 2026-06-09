@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { getUserFromSession } from '@/lib/auth'
+import { logAudit } from '@/lib/audit'
 
 // GET /api/users - Listar usuarios
 export async function GET() {
@@ -75,6 +76,17 @@ export async function POST(request: Request) {
     })
 
     const { password: _, ...safeUser } = newUser
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'create',
+      entity: 'user',
+      entityId: safeUser.id,
+      entityName: safeUser.name,
+      details: { email: safeUser.email, role: safeUser.role.name },
+    })
+
     return NextResponse.json({ user: safeUser })
   } catch {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 })

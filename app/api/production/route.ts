@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/apiGuard'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(request: Request) {
   const { error } = await requirePermission(request, 'produccion', 'view')
@@ -18,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requirePermission(request, 'produccion', 'create')
+  const { error, user } = await requirePermission(request, 'produccion', 'create')
   if (error) return error
 
   try {
@@ -50,6 +51,16 @@ export async function POST(request: Request) {
       create: { productId: data.productId, location: 'factory', quantity },
     })
 
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'create',
+      entity: 'production',
+      entityId: record.id,
+      entityName: `Producción ${record.id.slice(0, 8)}`,
+      details: { boxes: record.boxes, quantity: record.quantity },
+    })
+
     return NextResponse.json(record)
   } catch (error) {
     console.error('Production POST error:', error)
@@ -61,7 +72,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const { error } = await requirePermission(request, 'produccion', 'edit')
+  const { error, user } = await requirePermission(request, 'produccion', 'edit')
   if (error) return error
 
   const data = await request.json()
@@ -81,11 +92,21 @@ export async function PUT(request: Request) {
     },
   })
 
+  await logAudit({
+    userId: user.id,
+    userName: user.name,
+    action: 'edit',
+    entity: 'production',
+    entityId: record.id,
+    entityName: `Producción ${record.id.slice(0, 8)}`,
+    details: { boxes: record.boxes, quantity: record.quantity },
+  })
+
   return NextResponse.json(record)
 }
 
 export async function DELETE(request: Request) {
-  const { error } = await requirePermission(request, 'produccion', 'delete')
+  const { error, user } = await requirePermission(request, 'produccion', 'delete')
   if (error) return error
 
   const { searchParams } = new URL(request.url)
@@ -95,6 +116,19 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
   }
 
+  const record = await prisma.production.findUnique({ where: { id }, select: { id: true, boxes: true, quantity: true } })
+
   await prisma.production.delete({ where: { id } })
+
+  await logAudit({
+    userId: user.id,
+    userName: user.name,
+    action: 'delete',
+    entity: 'production',
+    entityId: id,
+    entityName: `Producción ${id.slice(0, 8)}`,
+    details: record ? { boxes: record.boxes, quantity: record.quantity } : undefined,
+  })
+
   return NextResponse.json({ success: true })
 }

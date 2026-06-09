@@ -23,6 +23,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/src/lib/utils'
 import { useTheme, type Theme } from '@/src/lib/theme'
@@ -40,6 +41,7 @@ export type NavIconName =
   | 'configuracion'
   | 'roles'
   | 'usuarios'
+  | 'auditoria'
 
 const ICONS: Record<NavIconName, ComponentType<{ className?: string }>> = {
   dashboard: LayoutDashboard,
@@ -54,6 +56,7 @@ const ICONS: Record<NavIconName, ComponentType<{ className?: string }>> = {
   configuracion: Settings,
   roles: Shield,
   usuarios: UserCog,
+  auditoria: ClipboardList,
 }
 
 export type NavItem = {

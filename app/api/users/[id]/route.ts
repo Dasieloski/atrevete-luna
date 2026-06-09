@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { getUserFromSession } from '@/lib/auth'
+import { logAudit } from '@/lib/audit'
 
 // PUT /api/users/:id - Actualizar usuario
 export async function PUT(
@@ -69,6 +70,17 @@ export async function PUT(
     })
 
     const { password: _, ...safeUser } = updated
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'edit',
+      entity: 'user',
+      entityId: safeUser.id,
+      entityName: safeUser.name,
+      details: { email: safeUser.email, role: safeUser.role.name },
+    })
+
     return NextResponse.json({ user: safeUser })
   } catch {
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 })
@@ -112,6 +124,15 @@ export async function DELETE(
         )
       }
     }
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      action: 'delete',
+      entity: 'user',
+      entityId: id,
+      entityName: targetUser?.name || id,
+    })
 
     await prisma.user.delete({
       where: { id },
