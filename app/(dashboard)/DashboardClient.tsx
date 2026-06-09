@@ -24,6 +24,7 @@ import { DateRangeFilter } from '@/src/components/DateRangeFilter'
 import { ProductionCalendar } from '@/src/components/dashboard/ProductionCalendar'
 import { DailySummaryTable } from '@/src/components/dashboard/DailySummaryTable'
 import { DailyResumenTable, type ResumenRow } from '@/src/components/dashboard/DailyResumenTable'
+import { DayDetailModal } from '@/src/components/dashboard/DayDetailModal'
 import { DashboardCharts } from '@/src/components/dashboard/DashboardCharts'
 import { PageHeader } from '@/src/components/ui/PageHeader'
 import { Button } from '@/src/components/ui/Button'
@@ -232,6 +233,7 @@ export default function DashboardClient() {
   const [view, setView] = useState<View>('calendar')
   const [allTimeData, setAllTimeData] = useState<DashboardData | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const refresh = useCallback(async (range: DateRange) => {
     setLoading(true)
@@ -679,6 +681,7 @@ export default function DashboardClient() {
                 products={allTimeData?.products ?? []}
                 dailyData={calendarDailyData}
                 currentMonth={calendarMonth}
+                onCellClick={(date) => setSelectedDate(date)}
               />
             </div>
           )}
@@ -713,6 +716,14 @@ export default function DashboardClient() {
               />
             </div>
           )}
+
+          <DayDetailModal
+            open={!!selectedDate}
+            onClose={() => setSelectedDate(null)}
+            date={selectedDate ?? ''}
+            dayData={selectedDate ? calendarDailyData[selectedDate] : undefined}
+            products={allTimeData?.products ?? []}
+          />
         </div>
       )}
     </div>

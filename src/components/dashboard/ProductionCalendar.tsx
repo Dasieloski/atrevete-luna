@@ -26,12 +26,13 @@ interface ProductionCalendarProps {
   products: ProductInfo[]
   dailyData: Record<string, DayData>
   currentMonth: Date
+  onCellClick?: (date: string) => void
 }
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const COLORS = ['#3E6AE1', '#12B76A', '#F79009']
 
-export function ProductionCalendar({ products, dailyData, currentMonth }: ProductionCalendarProps) {
+export function ProductionCalendar({ products, dailyData, currentMonth, onCellClick }: ProductionCalendarProps) {
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
@@ -135,13 +136,14 @@ export function ProductionCalendar({ products, dailyData, currentMonth }: Produc
             }
 
             return (
-              <div
+              <button
                 key={cell.date}
+                onClick={() => cell.date && onCellClick?.(cell.date)}
                 className={cn(
-                  'min-h-[120px] border-b border-r border-hairline/40 p-1.5 transition-colors last:border-r-0',
+                  'min-h-[120px] w-full border-b border-r border-hairline/40 p-1.5 text-left transition-colors last:border-r-0',
                   cell.isToday
                     ? 'bg-primary/5 ring-1 ring-inset ring-primary/30'
-                    : 'bg-canvas'
+                    : 'bg-canvas hover:bg-ash/30'
                 )}
               >
                 <div className={cn('mb-1 text-xs font-medium', cell.isToday ? 'text-primary' : 'text-muted')}>
@@ -210,7 +212,7 @@ export function ProductionCalendar({ products, dailyData, currentMonth }: Produc
                     </div>
                   </div>
                 )}
-              </div>
+              </button>
             )
           })
         )}
