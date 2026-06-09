@@ -27,6 +27,12 @@ export async function POST(request: Request) {
     entity: 'product',
     entityId: product.id,
     entityName: product.name,
+    details: {
+      name: product.name,
+      priceWarehouse: product.priceWarehouse,
+      priceDistribution: product.priceDistribution,
+      unitsPerBox: product.unitsPerBox,
+    },
   })
 
   return NextResponse.json(product)

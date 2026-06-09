@@ -25,6 +25,11 @@ export async function POST(request: Request) {
     entity: 'expense',
     entityId: event.id,
     entityName: event.title,
+    details: {
+      title: event.title,
+      description: event.description,
+      date: event.date?.toISOString(),
+    },
   })
 
   return NextResponse.json(event)

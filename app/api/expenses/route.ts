@@ -25,7 +25,11 @@ export async function POST(request: Request) {
     entity: 'expense',
     entityId: expense.id,
     entityName: `${expense.category}: ${expense.description}`,
-    details: { amount: expense.amount },
+    details: {
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+    },
   })
 
   return NextResponse.json(expense)

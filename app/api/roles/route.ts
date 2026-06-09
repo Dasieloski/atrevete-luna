@@ -62,6 +62,10 @@ export async function POST(request: Request) {
       entity: 'role',
       entityId: role.id,
       entityName: role.name,
+      details: {
+        name: role.name,
+        description: role.description,
+      },
     })
 
     return NextResponse.json({ role })

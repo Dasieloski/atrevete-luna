@@ -81,7 +81,12 @@ export async function POST(request: Request) {
       entity: 'sale',
       entityId: result.id,
       entityName: `Venta ${result.id.slice(0, 8)}`,
-      details: { total: result.total, quantity: result.quantity },
+      details: {
+        total: result.total,
+        quantity: result.quantity,
+        seller: data.seller || 'alex',
+        productName: product?.name,
+      },
     })
 
     return NextResponse.json(result)

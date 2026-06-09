@@ -22,7 +22,13 @@ export async function PUT(
       entity: 'product',
       entityId: product.id,
       entityName: product.name,
-      details: data,
+      details: {
+        name: data.name ?? product.name,
+        priceWarehouse: data.priceWarehouse,
+        priceDistribution: data.priceDistribution,
+        unitsPerBox: data.unitsPerBox,
+        isActive: data.isActive,
+      },
     })
 
     return NextResponse.json(product)
@@ -79,6 +85,7 @@ export async function DELETE(
       entity: 'product',
       entityId: id,
       entityName: productToDelete?.name || id,
+      details: { name: productToDelete?.name },
     })
 
     return NextResponse.json({ success: true })

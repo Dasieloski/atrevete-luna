@@ -50,6 +50,10 @@ export async function PUT(
       entity: 'role',
       entityId: role.id,
       entityName: role.name,
+      details: {
+        name: role.name,
+        description: role.description,
+      },
     })
 
     return NextResponse.json({ role })
@@ -92,6 +96,7 @@ export async function DELETE(
       entity: 'role',
       entityId: id,
       entityName: roleToDelete?.name || id,
+      details: { name: roleToDelete?.name },
     })
 
     await prisma.role.delete({

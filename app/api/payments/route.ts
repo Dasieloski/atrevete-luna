@@ -61,7 +61,11 @@ export async function POST(request: Request) {
         entity: 'debt',
         entityId: payment.id,
         entityName: `Pago adelantado ${payment.id.slice(0, 8)}`,
-        details: { amount: payment.amount, type: payment.type },
+        details: {
+          amount: payment.amount,
+          type: payment.type,
+          notes: payment.notes,
+        },
       })
 
       return NextResponse.json(payment)
@@ -117,7 +121,12 @@ export async function POST(request: Request) {
       entity: 'debt',
       entityId: result.id,
       entityName: `Pago ${result.id.slice(0, 8)}`,
-      details: { amount: result.amount, type: result.type, debtId: result.debtId },
+      details: {
+        amount: result.amount,
+        type: result.type,
+        debtId: result.debtId,
+        notes: result.notes,
+      },
     })
 
     return NextResponse.json(result)

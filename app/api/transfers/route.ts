@@ -75,7 +75,12 @@ export async function POST(request: Request) {
       entity: 'transfer',
       entityId: transfer.id,
       entityName: `Transferencia ${transfer.id.slice(0, 8)}`,
-      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
+      details: {
+        from: transfer.fromLocation,
+        to: transfer.toLocation,
+        quantity: transfer.quantity,
+        productName: product?.name,
+      },
     })
 
     return NextResponse.json(transfer)
@@ -169,7 +174,12 @@ export async function PUT(request: Request) {
       entity: 'transfer',
       entityId: transfer.id,
       entityName: `Transferencia ${transfer.id.slice(0, 8)}`,
-      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
+      details: {
+        from: transfer.fromLocation,
+        to: transfer.toLocation,
+        quantity: transfer.quantity,
+        productName: product?.name,
+      },
     })
 
     return NextResponse.json(transfer)
@@ -216,7 +226,11 @@ export async function DELETE(request: Request) {
       entity: 'transfer',
       entityId: id,
       entityName: `Transferencia ${id.slice(0, 8)}`,
-      details: { from: transfer.fromLocation, to: transfer.toLocation, quantity: transfer.quantity },
+      details: {
+        from: transfer.fromLocation,
+        to: transfer.toLocation,
+        quantity: transfer.quantity,
+      },
     })
 
     await prisma.transfer.delete({ where: { id } })

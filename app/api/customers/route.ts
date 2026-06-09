@@ -28,6 +28,11 @@ export async function POST(request: Request) {
     entity: 'customer',
     entityId: customer.id,
     entityName: customer.name,
+    details: {
+      name: customer.name,
+      province: customer.province,
+      phone: customer.phone,
+    },
   })
 
   return NextResponse.json(customer)

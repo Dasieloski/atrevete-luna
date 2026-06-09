@@ -28,7 +28,11 @@ export async function POST(request: Request) {
     entity: 'production',
     entityId: record.id,
     entityName: `Merma ${record.id.slice(0, 8)}`,
-    details: { quantity: record.quantity, reason: record.reason },
+    details: {
+      quantity: record.quantity,
+      reason: record.reason,
+      date: record.date?.toISOString(),
+    },
   })
 
   return NextResponse.json(record)

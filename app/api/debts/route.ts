@@ -40,7 +40,11 @@ export async function POST(request: Request) {
     entity: 'debt',
     entityId: debt.id,
     entityName: `Deuda ${debt.id.slice(0, 8)}`,
-    details: { amount: debt.amount, type: debt.type },
+    details: {
+      amount: debt.amount,
+      type: debt.type,
+      paidAmount: debt.paidAmount,
+    },
   })
 
   return NextResponse.json(debt)

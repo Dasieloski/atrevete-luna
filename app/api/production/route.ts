@@ -58,7 +58,12 @@ export async function POST(request: Request) {
       entity: 'production',
       entityId: record.id,
       entityName: `Producción ${record.id.slice(0, 8)}`,
-      details: { boxes: record.boxes, quantity: record.quantity },
+      details: {
+        boxes: record.boxes,
+        unitsPerBox: record.unitsPerBox,
+        quantity: record.quantity,
+        status: record.status,
+      },
     })
 
     return NextResponse.json(record)
@@ -105,7 +110,12 @@ export async function PUT(request: Request) {
       entity: 'production',
       entityId: record.id,
       entityName: `Producción ${record.id.slice(0, 8)}`,
-      details: { boxes: record.boxes, quantity: record.quantity },
+      details: {
+        boxes: record.boxes,
+        unitsPerBox: record.unitsPerBox,
+        quantity: record.quantity,
+        status: record.status,
+      },
     })
 
     return NextResponse.json(record)
@@ -130,7 +140,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
     }
 
-    const record = await prisma.production.findUnique({ where: { id }, select: { id: true, boxes: true, quantity: true } })
+    const record = await prisma.production.findUnique({ where: { id }, select: { id: true, boxes: true, unitsPerBox: true, quantity: true } })
 
     await prisma.production.delete({ where: { id } })
 
@@ -141,7 +151,7 @@ export async function DELETE(request: Request) {
       entity: 'production',
       entityId: id,
       entityName: `Producción ${id.slice(0, 8)}`,
-      details: record ? { boxes: record.boxes, quantity: record.quantity } : undefined,
+      details: record ? { boxes: record.boxes, unitsPerBox: record.unitsPerBox, quantity: record.quantity } : undefined,
     })
 
     return NextResponse.json({ success: true })
