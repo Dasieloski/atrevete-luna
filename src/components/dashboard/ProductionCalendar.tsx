@@ -47,11 +47,11 @@ export function ProductionCalendar({ products, dailyData, currentMonth, onCellCl
       cells.push({ day: 0, date: null, isToday: false })
     }
 
-    const todayStr = new Date().toISOString().split('T')[0]
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const dateObj = new Date(year, month, d)
-      const dateStr = dateObj.toISOString().split('T')[0]
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
       cells.push({
         day: d,
         date: dateStr,

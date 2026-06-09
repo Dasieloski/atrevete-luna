@@ -366,8 +366,8 @@ export default function DashboardClient() {
       const ws: Record<string, number> = {}
       for (const prod of allTimeData.products) {
         const upb = prod.unitsPerBox || 1
-        fs[prod.id] = upb > 0 ? Math.floor((factoryStock[prod.id] || 0) / upb) : (factoryStock[prod.id] || 0)
-        ws[prod.id] = upb > 0 ? Math.floor((warehouseStock[prod.id] || 0) / upb) : (warehouseStock[prod.id] || 0)
+        fs[prod.id] = Math.max(0, upb > 0 ? Math.floor((factoryStock[prod.id] || 0) / upb) : (factoryStock[prod.id] || 0))
+        ws[prod.id] = Math.max(0, upb > 0 ? Math.floor((warehouseStock[prod.id] || 0) / upb) : (warehouseStock[prod.id] || 0))
       }
 
       result[date] = { factoryStock: fs, warehouseStock: ws }

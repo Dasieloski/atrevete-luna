@@ -55,39 +55,82 @@ export interface DailyResumenTableProps {
   totalPaid: number
 }
 
-function ProductCell({ boxes, value }: { boxes: number; value: number }) {
-  const hasBoxes = boxes > 0
-  const hasValue = value > 0
+const PROD_COLORS = [
+  { dot: 'bg-blue-500', text: 'text-blue-700' },
+  { dot: 'bg-emerald-500', text: 'text-emerald-700' },
+  { dot: 'bg-amber-500', text: 'text-amber-700' },
+]
+
+function MiniList({
+  products,
+  items,
+  showValue = false,
+}: {
+  products: ProductInfo[]
+  items: Record<string, ProductBreakdown>
+  showValue?: boolean
+}) {
+  const hasAny = products.some((p) => (items[p.id]?.boxes ?? 0) > 0)
+  if (!hasAny) return <span className="text-sm text-muted-soft">—</span>
+
   return (
     <div className="flex flex-col gap-0.5">
-      <span
-        className={cn(
-          'text-sm font-semibold tabular-nums leading-tight',
-          hasBoxes ? 'text-ink' : 'text-muted-soft'
-        )}
-      >
-        {hasBoxes ? formatNumber(boxes) : '—'}
-      </span>
-      {hasValue && (
-        <span className="text-[10px] tabular-nums leading-tight text-muted">
-          {formatCurrency(value)}
+      {products.map((prod, idx) => {
+        const b = items[prod.id]
+        if (!b || b.boxes === 0) return null
+        const color = PROD_COLORS[idx % PROD_COLORS.length]
+        return (
+          <div key={prod.id} className="flex items-center gap-1.5">
+            <span className={cn('h-2 w-2 shrink-0 rounded-full', color.dot)} />
+            <span className={cn('text-[11px] font-medium', color.text)}>
+              {prod.name.split(' ')[0]}
+            </span>
+            <span className="ml-auto text-sm font-semibold tabular-nums text-ink">
+              {formatNumber(b.boxes)} <span className="text-[10px] font-normal text-muted">cjs</span>
+            </span>
+          </div>
+        )
+      })}
+      {showValue && (
+        <span className="mt-0.5 text-right text-[10px] tabular-nums text-muted">
+          {formatCurrency(
+            Object.values(items).reduce((s, v) => s + v.value, 0)
+          )} precio fábrica
         </span>
       )}
     </div>
   )
 }
 
-function StockCell({ boxes }: { boxes: number }) {
-  const hasBoxes = boxes > 0
+function MiniStockList({
+  products,
+  stock,
+}: {
+  products: ProductInfo[]
+  stock: Record<string, number>
+}) {
+  const hasAny = products.some((p) => (stock[p.id] ?? 0) > 0)
+  if (!hasAny) return <span className="text-sm text-muted-soft">—</span>
+
   return (
-    <span
-      className={cn(
-        'text-sm font-semibold tabular-nums leading-tight',
-        hasBoxes ? 'text-ink' : 'text-muted-soft'
-      )}
-    >
-      {hasBoxes ? `${formatNumber(boxes)} cjs` : '—'}
-    </span>
+    <div className="flex flex-col gap-0.5">
+      {products.map((prod, idx) => {
+        const boxes = stock[prod.id] ?? 0
+        if (boxes === 0) return null
+        const color = PROD_COLORS[idx % PROD_COLORS.length]
+        return (
+          <div key={prod.id} className="flex items-center gap-1.5">
+            <span className={cn('h-2 w-2 shrink-0 rounded-full', color.dot)} />
+            <span className={cn('text-[11px] font-medium', color.text)}>
+              {prod.name.split(' ')[0]}
+            </span>
+            <span className="ml-auto text-sm font-semibold tabular-nums text-ink">
+              {formatNumber(boxes)} <span className="text-[10px] font-normal text-muted">cjs</span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -103,93 +146,9 @@ export function DailyResumenTable({
   const columnHelper = createColumnHelper<ResumenRow>()
 
   const columns = useMemo(() => {
-    const makeProductCols = (
-      accessor: (row: ResumenRow, prodId: string) => ProductBreakdown | number,
-      isStock = false
-    ) =>
-      products.map((prod) =>
-        columnHelper.accessor(
-          (row) => {
-            const v = accessor(row, prod.id)
-            return typeof v === 'number' ? v : v.boxes
-          },
-          {
-            id: `${isStock ? 'stock' : 'col'}_${prod.id}`,
-            header: prod.name.split(' ')[0],
-            cell: (info) => {
-              const row = info.row.original
-              if (isStock) {
-                const boxes = row.factoryStock[prod.id] ?? 0
-                return <StockCell boxes={boxes} />
-              }
-              const b = row.products[prod.id]
-              return <ProductCell boxes={b?.boxes ?? 0} value={b?.value ?? 0} />
-            },
-            sortingFn: 'basic',
-          }
-        )
-      )
-
-    const transferCols = products.map((prod) =>
-      columnHelper.accessor((row) => row.transfers[prod.id]?.boxes ?? 0, {
-        id: `trans_${prod.id}`,
-        header: prod.name.split(' ')[0],
-        cell: (info) => {
-          const row = info.row.original
-          const b = row.transfers[prod.id]
-          return <ProductCell boxes={b?.boxes ?? 0} value={b?.value ?? 0} />
-        },
-        sortingFn: 'basic',
-      })
-    )
-
-    const saleCols = products.map((prod) =>
-      columnHelper.accessor((row) => row.sales[prod.id]?.boxes ?? 0, {
-        id: `sale_${prod.id}`,
-        header: prod.name.split(' ')[0],
-        cell: (info) => {
-          const row = info.row.original
-          const b = row.sales[prod.id]
-          return <ProductCell boxes={b?.boxes ?? 0} value={b?.value ?? 0} />
-        },
-        sortingFn: 'basic',
-      })
-    )
-
-    const factoryStockCols = products.map((prod) =>
-      columnHelper.accessor((row) => row.factoryStock[prod.id] ?? 0, {
-        id: `fstk_${prod.id}`,
-        header: prod.name.split(' ')[0],
-        cell: (info) => <StockCell boxes={info.getValue() as number} />,
-        sortingFn: 'basic',
-      })
-    )
-
-    const warehouseStockCols = products.map((prod) =>
-      columnHelper.accessor((row) => row.warehouseStock[prod.id] ?? 0, {
-        id: `wstk_${prod.id}`,
-        header: prod.name.split(' ')[0],
-        cell: (info) => <StockCell boxes={info.getValue() as number} />,
-        sortingFn: 'basic',
-      })
-    )
-
-    const productCols = products.map((prod) =>
-      columnHelper.accessor((row) => row.products[prod.id]?.boxes ?? 0, {
-        id: `prod_${prod.id}`,
-        header: prod.name.split(' ')[0],
-        cell: (info) => {
-          const row = info.row.original
-          const b = row.products[prod.id]
-          return <ProductCell boxes={b?.boxes ?? 0} value={b?.value ?? 0} />
-        },
-        sortingFn: 'basic',
-      })
-    )
-
     return [
       columnHelper.accessor('date', {
-        header: '',
+        header: 'Fecha',
         cell: (info) => (
           <span className="whitespace-nowrap text-sm font-medium text-ink">
             {formatDate(info.getValue())}
@@ -197,28 +156,68 @@ export function DailyResumenTable({
         ),
         sortingFn: 'text',
       }),
-      columnHelper.group({
-        header: 'Producido por fábrica',
-        columns: productCols,
-      }),
-      columnHelper.group({
-        header: 'Recogido',
-        columns: transferCols,
-      }),
-      columnHelper.group({
-        header: 'Vendido',
-        columns: saleCols,
-      }),
-      columnHelper.group({
-        header: 'Por recoger',
-        columns: factoryStockCols,
-      }),
-      columnHelper.group({
-        header: 'En almacén',
-        columns: warehouseStockCols,
-      }),
+      columnHelper.accessor(
+        (row) => Object.values(row.products).reduce((s, v) => s + v.boxes, 0),
+        {
+          id: 'produced',
+          header: 'Producido por fábrica',
+          cell: (info) => {
+            const row = info.row.original
+            return <MiniList products={products} items={row.products} showValue />
+          },
+          sortingFn: 'basic',
+        }
+      ),
+      columnHelper.accessor(
+        (row) => Object.values(row.transfers).reduce((s, v) => s + v.boxes, 0),
+        {
+          id: 'recogido',
+          header: 'Recogido',
+          cell: (info) => {
+            const row = info.row.original
+            return <MiniList products={products} items={row.transfers} showValue />
+          },
+          sortingFn: 'basic',
+        }
+      ),
+      columnHelper.accessor(
+        (row) => Object.values(row.sales).reduce((s, v) => s + v.boxes, 0),
+        {
+          id: 'vendido',
+          header: 'Vendido',
+          cell: (info) => {
+            const row = info.row.original
+            return <MiniList products={products} items={row.sales} showValue />
+          },
+          sortingFn: 'basic',
+        }
+      ),
+      columnHelper.accessor(
+        (row) => Object.values(row.factoryStock).reduce((s, v) => s + v, 0),
+        {
+          id: 'porRecoger',
+          header: 'Por recoger',
+          cell: (info) => {
+            const row = info.row.original
+            return <MiniStockList products={products} stock={row.factoryStock} />
+          },
+          sortingFn: 'basic',
+        }
+      ),
+      columnHelper.accessor(
+        (row) => Object.values(row.warehouseStock).reduce((s, v) => s + v, 0),
+        {
+          id: 'enAlmacen',
+          header: 'En almacén',
+          cell: (info) => {
+            const row = info.row.original
+            return <MiniStockList products={products} stock={row.warehouseStock} />
+          },
+          sortingFn: 'basic',
+        }
+      ),
       columnHelper.accessor('payments', {
-        header: '',
+        header: 'Pagado',
         cell: (info) => {
           const val = info.getValue()
           return val > 0 ? (
@@ -339,14 +338,10 @@ export function DailyResumenTable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    colSpan={header.colSpan}
-                    className={cn(
-                      'cursor-pointer select-none whitespace-nowrap px-3 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink',
-                      header.colSpan > 1 && 'text-center'
-                    )}
+                    className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink"
                     onClick={header.column.getToggleSortingHandler()}
                   >
-                    <div className={cn('flex items-center gap-1.5', header.colSpan > 1 && 'justify-center')}>
+                    <div className="flex items-center gap-1.5">
                       {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getIsSorted() === 'asc' ? (
                         <ChevronUp className="h-3.5 w-3.5 text-primary" />
@@ -368,7 +363,7 @@ export function DailyResumenTable({
                 className="border-b border-hairline/60 transition-colors last:border-0 hover:bg-ash/40"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="whitespace-nowrap px-3 py-3">
+                  <td key={cell.id} className="whitespace-nowrap px-4 py-3 align-top">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -376,42 +371,23 @@ export function DailyResumenTable({
             ))}
             {/* Totals row */}
             <tr className="border-b border-hairline bg-ash/50 font-semibold">
-              <td className="whitespace-nowrap px-3 py-3 text-sm text-ink">Total</td>
-              {products.map((prod) => (
-                <td key={prod.id} className="whitespace-nowrap px-3 py-3">
-                  <ProductCell
-                    boxes={totals.products[prod.id]?.boxes ?? 0}
-                    value={totals.products[prod.id]?.value ?? 0}
-                  />
-                </td>
-              ))}
-              {products.map((prod) => (
-                <td key={prod.id} className="whitespace-nowrap px-3 py-3">
-                  <ProductCell
-                    boxes={totals.transfers[prod.id]?.boxes ?? 0}
-                    value={totals.transfers[prod.id]?.value ?? 0}
-                  />
-                </td>
-              ))}
-              {products.map((prod) => (
-                <td key={prod.id} className="whitespace-nowrap px-3 py-3">
-                  <ProductCell
-                    boxes={totals.sales[prod.id]?.boxes ?? 0}
-                    value={totals.sales[prod.id]?.value ?? 0}
-                  />
-                </td>
-              ))}
-              {products.map((prod) => (
-                <td key={prod.id} className="whitespace-nowrap px-3 py-3">
-                  <StockCell boxes={totals.factoryStock[prod.id] ?? 0} />
-                </td>
-              ))}
-              {products.map((prod) => (
-                <td key={prod.id} className="whitespace-nowrap px-3 py-3">
-                  <StockCell boxes={totals.warehouseStock[prod.id] ?? 0} />
-                </td>
-              ))}
-              <td className="whitespace-nowrap px-3 py-3">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-ink">Total</td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <MiniList products={products} items={totals.products} showValue />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <MiniList products={products} items={totals.transfers} showValue />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <MiniList products={products} items={totals.sales} showValue />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <MiniStockList products={products} stock={totals.factoryStock} />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
+                <MiniStockList products={products} stock={totals.warehouseStock} />
+              </td>
+              <td className="whitespace-nowrap px-4 py-3">
                 {totals.payments > 0 ? (
                   <span className="text-sm font-semibold tabular-nums text-success">
                     {formatCurrency(totals.payments)}
