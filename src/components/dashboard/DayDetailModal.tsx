@@ -32,8 +32,8 @@ interface DayData {
 }
 
 interface StockData {
-  factoryStockCajas: number
-  warehouseStockCajas: number
+  factoryStock: Record<string, number>
+  warehouseStock: Record<string, number>
 }
 
 interface DayDetailModalProps {
@@ -76,22 +76,6 @@ export function DayDetailModal({ open, onClose, date, dayData, products, stockDa
     Object.keys(dayData.sales).length > 0 ||
     dayData.payments > 0
   )
-
-  // Totals
-  let totalRecogidoCajas = 0
-  let totalVendidoCajas = 0
-  if (dayData) {
-    for (const [prodId, units] of Object.entries(dayData.transfers)) {
-      const prod = products.find((p) => p.id === prodId)
-      const upb = prod?.unitsPerBox ?? 1
-      totalRecogidoCajas += upb > 0 ? Math.floor(units / upb) : units
-    }
-    for (const [prodId, saleData] of Object.entries(dayData.sales)) {
-      const prod = products.find((p) => p.id === prodId)
-      const upb = prod?.unitsPerBox ?? 1
-      totalVendidoCajas += upb > 0 ? Math.floor(saleData.quantity / upb) : saleData.quantity
-    }
-  }
 
   return (
     <div
@@ -168,13 +152,47 @@ export function DayDetailModal({ open, onClose, date, dayData, products, stockDa
                               {formatNumber(boxes)} <span className="text-xs font-normal text-muted">cjs</span>
                             </span>
                           </div>
-                          <div className="mt-1.5 flex items-center justify-between">
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-white/60">
-                              <div
-                                className="h-full rounded-full"
-                                style={{ width: '100%', backgroundColor: color.bar }}
-                              />
-                            </div>
+                          <div className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted">
+                            {formatCurrency(value)} precio fábrica
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recogido por producto */}
+              {Object.keys(dayData.transfers).length > 0 && (
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-ink" />
+                    <h4 className="text-sm font-semibold text-ink">Recogido del almacén</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {products.map((prod, idx) => {
+                      const units = dayData.transfers[prod.id] || 0
+                      if (units === 0) return null
+                      const boxes = prod.unitsPerBox > 0 ? Math.floor(units / prod.unitsPerBox) : units
+                      const value = units * prod.priceWarehouse
+                      const color = COLORS[idx % COLORS.length]
+
+                      return (
+                        <div
+                          key={prod.id}
+                          className={cn(
+                            'rounded-xl border p-3',
+                            color.bg,
+                            color.border
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={cn('text-sm font-medium', color.text)}>
+                              {prod.name.split(' ')[0]}
+                            </span>
+                            <span className="text-lg font-bold tabular-nums text-ink">
+                              {formatNumber(boxes)} <span className="text-xs font-normal text-muted">cjs</span>
+                            </span>
                           </div>
                           <div className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted">
                             {formatCurrency(value)} precio fábrica
@@ -186,50 +204,46 @@ export function DayDetailModal({ open, onClose, date, dayData, products, stockDa
                 </div>
               )}
 
-              {/* Recogido y Vendido en una fila */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Recogido */}
-                <div className="rounded-xl border border-hairline-soft bg-ash/40 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Package className="h-4 w-4 text-ink" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted">Recogido</span>
-                  </div>
-                  {totalRecogidoCajas > 0 ? (
-                    <>
-                      <span className="text-2xl font-bold tabular-nums text-ink">
-                        {formatNumber(totalRecogidoCajas)}
-                      </span>
-                      <span className="ml-1 text-xs text-muted">cjs</span>
-                      <div className="mt-1 text-xs tabular-nums text-muted">
-                        {formatCurrency(dayData.warehouseValue)} precio fábrica
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-sm text-muted-soft">Sin recogida</span>
-                  )}
-                </div>
-
-                {/* Vendido */}
-                <div className="rounded-xl border border-hairline-soft bg-ash/40 p-4">
-                  <div className="mb-2 flex items-center gap-2">
+              {/* Vendido por producto */}
+              {Object.keys(dayData.sales).length > 0 && (
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
                     <ShoppingCart className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-primary/70">Vendido</span>
+                    <h4 className="text-sm font-semibold text-ink">Vendido / Distribuido</h4>
                   </div>
-                  {totalVendidoCajas > 0 ? (
-                    <>
-                      <span className="text-2xl font-bold tabular-nums text-primary">
-                        {formatNumber(totalVendidoCajas)}
-                      </span>
-                      <span className="ml-1 text-xs text-primary/70">cjs</span>
-                      <div className="mt-1 text-xs tabular-nums text-primary/70">
-                        {formatCurrency(dayData.distributionValue)} ventas
-                      </div>
-                    </>
-                  ) : (
-                    <span className="text-sm text-muted-soft">Sin ventas</span>
-                  )}
+                  <div className="space-y-2">
+                    {products.map((prod, idx) => {
+                      const saleData = dayData.sales[prod.id]
+                      if (!saleData || saleData.quantity === 0) return null
+                      const boxes = prod.unitsPerBox > 0 ? Math.floor(saleData.quantity / prod.unitsPerBox) : saleData.quantity
+                      const color = COLORS[idx % COLORS.length]
+
+                      return (
+                        <div
+                          key={prod.id}
+                          className={cn(
+                            'rounded-xl border p-3',
+                            color.bg,
+                            color.border
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={cn('text-sm font-medium', color.text)}>
+                              {prod.name.split(' ')[0]}
+                            </span>
+                            <span className="text-lg font-bold tabular-nums text-primary">
+                              {formatNumber(boxes)} <span className="text-xs font-normal text-primary/70">cjs</span>
+                            </span>
+                          </div>
+                          <div className="mt-1.5 text-right text-xs font-medium tabular-nums text-muted">
+                            {formatCurrency(saleData.total)} ventas
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Pagos */}
               {dayData.payments > 0 && (
@@ -247,38 +261,75 @@ export function DayDetailModal({ open, onClose, date, dayData, products, stockDa
                 </div>
               )}
 
-              {/* Resumen de stock */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-warning/20 bg-warning/5 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Factory className="h-4 w-4 text-warning" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-warning">
-                      Por recoger en fábrica
-                    </span>
-                  </div>
-                  <span className="text-2xl font-bold tabular-nums text-ink">
-                    {formatNumber(stockData?.factoryStockCajas ?? 0)}
-                  </span>
-                  <span className="ml-1 text-xs text-muted">cjs</span>
-                  <p className="mt-1 text-xs text-muted">
-                    Stock acumulado en fábrica a este día
-                  </p>
+              {/* Stock por recoger en fábrica */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <Factory className="h-4 w-4 text-warning" />
+                  <h4 className="text-sm font-semibold text-ink">Por recoger en fábrica</h4>
                 </div>
+                <div className="space-y-2">
+                  {products.map((prod, idx) => {
+                    const boxes = stockData?.factoryStock[prod.id] ?? 0
+                    if (boxes === 0) return null
+                    const color = COLORS[idx % COLORS.length]
 
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Package className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-primary">
-                      En almacén
-                    </span>
-                  </div>
-                  <span className="text-2xl font-bold tabular-nums text-ink">
-                    {formatNumber(stockData?.warehouseStockCajas ?? 0)}
-                  </span>
-                  <span className="ml-1 text-xs text-muted">cjs</span>
-                  <p className="mt-1 text-xs text-muted">
-                    Stock disponible en almacén a este día
-                  </p>
+                    return (
+                      <div
+                        key={prod.id}
+                        className={cn(
+                          'flex items-center justify-between rounded-xl border p-3',
+                          color.bg,
+                          color.border
+                        )}
+                      >
+                        <span className={cn('text-sm font-medium', color.text)}>
+                          {prod.name.split(' ')[0]}
+                        </span>
+                        <span className="text-lg font-bold tabular-nums text-ink">
+                          {formatNumber(boxes)} <span className="text-xs font-normal text-muted">cjs</span>
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {products.every((p) => (stockData?.factoryStock[p.id] ?? 0) === 0) && (
+                    <span className="text-sm text-muted-soft">Todo ha sido recogido</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Stock en almacén */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4 text-primary" />
+                  <h4 className="text-sm font-semibold text-ink">En almacén</h4>
+                </div>
+                <div className="space-y-2">
+                  {products.map((prod, idx) => {
+                    const boxes = stockData?.warehouseStock[prod.id] ?? 0
+                    if (boxes === 0) return null
+                    const color = COLORS[idx % COLORS.length]
+
+                    return (
+                      <div
+                        key={prod.id}
+                        className={cn(
+                          'flex items-center justify-between rounded-xl border p-3',
+                          color.bg,
+                          color.border
+                        )}
+                      >
+                        <span className={cn('text-sm font-medium', color.text)}>
+                          {prod.name.split(' ')[0]}
+                        </span>
+                        <span className="text-lg font-bold tabular-nums text-ink">
+                          {formatNumber(boxes)} <span className="text-xs font-normal text-muted">cjs</span>
+                        </span>
+                      </div>
+                    )
+                  })}
+                  {products.every((p) => (stockData?.warehouseStock[p.id] ?? 0) === 0) && (
+                    <span className="text-sm text-muted-soft">Almacén vacío</span>
+                  )}
                 </div>
               </div>
             </div>

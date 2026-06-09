@@ -343,6 +343,38 @@ export default function DashboardClient() {
     return result
   }, [allTimeDailyData, allTimeData])
 
+  // Running stock per day by product
+  const stockByDate = useMemo(() => {
+    if (!allTimeData) return {}
+    const dates = Object.keys(allTimeDailyData).sort()
+    const factoryStock: Record<string, number> = {}
+    const warehouseStock: Record<string, number> = {}
+    const result: Record<string, { factoryStock: Record<string, number>; warehouseStock: Record<string, number> }> = {}
+
+    for (const date of dates) {
+      const day = allTimeDailyData[date]
+      for (const prod of allTimeData.products) {
+        const produced = day.production[prod.id] || 0
+        const transferred = day.transfers[prod.id] || 0
+        const sold = day.sales[prod.id]?.quantity || 0
+
+        factoryStock[prod.id] = (factoryStock[prod.id] || 0) + produced - transferred
+        warehouseStock[prod.id] = (warehouseStock[prod.id] || 0) + transferred - sold
+      }
+
+      const fs: Record<string, number> = {}
+      const ws: Record<string, number> = {}
+      for (const prod of allTimeData.products) {
+        const upb = prod.unitsPerBox || 1
+        fs[prod.id] = upb > 0 ? Math.floor((factoryStock[prod.id] || 0) / upb) : (factoryStock[prod.id] || 0)
+        ws[prod.id] = upb > 0 ? Math.floor((warehouseStock[prod.id] || 0) / upb) : (warehouseStock[prod.id] || 0)
+      }
+
+      result[date] = { factoryStock: fs, warehouseStock: ws }
+    }
+    return result
+  }, [allTimeDailyData, allTimeData])
+
   const allTimeSummaryRows = useMemo(() => {
     if (!allTimeData) return []
 
@@ -364,45 +396,47 @@ export default function DashboardClient() {
         lastRemaining = allTimeDebtBalance[dateStr]
       }
 
-      const warehouseBoxes = day
-        ? Object.entries(day.transfers).reduce((s, [prodId, units]) => {
-            const prod = allTimeData.products.find((p) => p.id === prodId)
-            const upb = prod?.unitsPerBox ?? 1
-            return s + (upb > 0 ? Math.floor(units / upb) : units)
-          }, 0)
-        : 0
-
-      const distributionBoxes = day
-        ? Object.entries(day.sales).reduce((s, [prodId, saleData]) => {
-            const prod = allTimeData.products.find((p) => p.id === prodId)
-            const upb = prod?.unitsPerBox ?? 1
-            return s + (upb > 0 ? Math.floor(saleData.quantity / upb) : saleData.quantity)
-          }, 0)
-        : 0
-
       const row: ResumenRow = {
         date: dateStr,
-        warehouseBoxes,
-        warehouseValue: day ? day.warehouseValue : 0,
-        distributionBoxes,
-        distributionValue: day ? day.distributionValue : 0,
+        products: {},
+        transfers: {},
+        sales: {},
+        factoryStock: {},
+        warehouseStock: {},
         payments: day ? day.payments : 0,
         remaining: lastRemaining,
-        products: {},
       }
 
       for (const prod of allTimeData.products) {
-        const units = day ? (day.production[prod.id] || 0) : 0
-        const boxes = prod.unitsPerBox > 0 ? Math.floor(units / prod.unitsPerBox) : 0
-        const value = units * (prod.priceWarehouse || 0)
-        row.products[prod.id] = { boxes, value }
+        // Produced
+        const prodUnits = day ? (day.production[prod.id] || 0) : 0
+        const prodBoxes = prod.unitsPerBox > 0 ? Math.floor(prodUnits / prod.unitsPerBox) : 0
+        const prodValue = prodUnits * (prod.priceWarehouse || 0)
+        row.products[prod.id] = { boxes: prodBoxes, value: prodValue }
+
+        // Transferred (recogido)
+        const transUnits = day ? (day.transfers[prod.id] || 0) : 0
+        const transBoxes = prod.unitsPerBox > 0 ? Math.floor(transUnits / prod.unitsPerBox) : 0
+        const transValue = transUnits * (prod.priceWarehouse || 0)
+        row.transfers[prod.id] = { boxes: transBoxes, value: transValue }
+
+        // Sold (vendido)
+        const saleUnits = day ? (day.sales[prod.id]?.quantity || 0) : 0
+        const saleBoxes = prod.unitsPerBox > 0 ? Math.floor(saleUnits / prod.unitsPerBox) : 0
+        const saleValue = day ? (day.sales[prod.id]?.total || 0) : 0
+        row.sales[prod.id] = { boxes: saleBoxes, value: saleValue }
+
+        // Stock
+        const stock = stockByDate[dateStr]
+        row.factoryStock[prod.id] = stock?.factoryStock[prod.id] ?? 0
+        row.warehouseStock[prod.id] = stock?.warehouseStock[prod.id] ?? 0
       }
 
       rows.push(row)
     }
 
     return rows.reverse()
-  }, [allTimeDailyData, allTimeDebtBalance, allTimeData, calendarMonth])
+  }, [allTimeDailyData, allTimeDebtBalance, allTimeData, calendarMonth, stockByDate])
 
   const allTimeTotalPending = useMemo(() => {
     if (allTimeSummaryRows.length === 0) return 0
@@ -413,6 +447,19 @@ export default function DashboardClient() {
   const allTimeTotalPaid = useMemo(() => {
     return allTimeSummaryRows.reduce((s, r) => s + r.payments, 0)
   }, [allTimeSummaryRows])
+
+  const totalProduction = useMemo(
+    () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
+    [data]
+  )
+  const totalSalesAmount = useMemo(
+    () => data?.sales.reduce((s, sl) => s + sl.total, 0) ?? 0,
+    [data]
+  )
+  const totalSalesQty = useMemo(
+    () => data?.sales.reduce((s, sl) => s + sl.quantity, 0) ?? 0,
+    [data]
+  )
 
   const calendarDailyData = useMemo(() => {
     if (!allTimeData) return {}
@@ -427,51 +474,6 @@ export default function DashboardClient() {
     }
     return filtered
   }, [allTimeDailyData, allTimeData, calendarMonth])
-
-  // Running stock per day: factory stock (not yet picked up) and warehouse stock
-  const stockByDate = useMemo(() => {
-    if (!allTimeData) return {}
-    const dates = Object.keys(allTimeDailyData).sort()
-    const factoryStock: Record<string, number> = {}
-    const warehouseStock: Record<string, number> = {}
-    const result: Record<string, { factoryStockCajas: number; warehouseStockCajas: number }> = {}
-
-    for (const date of dates) {
-      const day = allTimeDailyData[date]
-      for (const prod of allTimeData.products) {
-        const produced = day.production[prod.id] || 0
-        const transferred = day.transfers[prod.id] || 0
-        const sold = day.sales[prod.id]?.quantity || 0
-
-        factoryStock[prod.id] = (factoryStock[prod.id] || 0) + produced - transferred
-        warehouseStock[prod.id] = (warehouseStock[prod.id] || 0) + transferred - sold
-      }
-
-      let factoryStockCajas = 0
-      let warehouseStockCajas = 0
-      for (const prod of allTimeData.products) {
-        const upb = prod.unitsPerBox || 1
-        factoryStockCajas += upb > 0 ? Math.floor((factoryStock[prod.id] || 0) / upb) : (factoryStock[prod.id] || 0)
-        warehouseStockCajas += upb > 0 ? Math.floor((warehouseStock[prod.id] || 0) / upb) : (warehouseStock[prod.id] || 0)
-      }
-
-      result[date] = { factoryStockCajas, warehouseStockCajas }
-    }
-    return result
-  }, [allTimeDailyData, allTimeData])
-
-  const totalProduction = useMemo(
-    () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
-    [data]
-  )
-  const totalSalesAmount = useMemo(
-    () => data?.sales.reduce((s, sl) => s + sl.total, 0) ?? 0,
-    [data]
-  )
-  const totalSalesQty = useMemo(
-    () => data?.sales.reduce((s, sl) => s + sl.quantity, 0) ?? 0,
-    [data]
-  )
 
   return (
     <div>
