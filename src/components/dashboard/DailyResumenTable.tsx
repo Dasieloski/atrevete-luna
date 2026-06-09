@@ -331,14 +331,17 @@ export function DailyResumenTable({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b border-hairline bg-ash/50">
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map((header, hi) => (
                   <th
                     key={header.id}
-                    className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink"
+                    className={cn(
+                      'cursor-pointer select-none whitespace-nowrap border-b border-hairline px-3 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink',
+                      hi > 0 && 'border-l border-l-hairline/60'
+                    )}
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     <div className="flex items-center gap-1.5">
@@ -357,37 +360,46 @@ export function DailyResumenTable({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
+            {table.getRowModel().rows.map((row, ri) => (
               <tr
                 key={row.id}
-                className="border-b border-hairline/60 transition-colors last:border-0 hover:bg-ash/40"
+                className={cn(
+                  'border-b border-hairline transition-colors hover:bg-ash/40',
+                  ri % 2 === 1 && 'bg-ash/20'
+                )}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="whitespace-nowrap px-4 py-3 align-top">
+                {row.getVisibleCells().map((cell, ci) => (
+                  <td
+                    key={cell.id}
+                    className={cn(
+                      'whitespace-nowrap border-b border-hairline/60 px-3 py-3 align-top',
+                      ci > 0 && 'border-l border-l-hairline/40'
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
             ))}
             {/* Totals row */}
-            <tr className="border-b border-hairline bg-ash/50 font-semibold">
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-ink">Total</td>
-              <td className="whitespace-nowrap px-4 py-3">
+            <tr className="border-b-2 border-hairline bg-ash/60 font-semibold">
+              <td className="whitespace-nowrap border-b-2 border-hairline px-3 py-3 text-sm text-ink">Total</td>
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 <MiniList products={products} items={totals.products} showValue />
               </td>
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 <MiniList products={products} items={totals.transfers} showValue />
               </td>
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 <MiniList products={products} items={totals.sales} showValue />
               </td>
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 <MiniStockList products={products} stock={totals.factoryStock} />
               </td>
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 <MiniStockList products={products} stock={totals.warehouseStock} />
               </td>
-              <td className="whitespace-nowrap px-4 py-3">
+              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
                 {totals.payments > 0 ? (
                   <span className="text-sm font-semibold tabular-nums text-success">
                     {formatCurrency(totals.payments)}

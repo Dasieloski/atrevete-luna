@@ -1,5 +1,5 @@
 export function formatDate(value: string | Date): string {
-  const d = typeof value === 'string' ? new Date(value) : value
+  const d = typeof value === 'string' ? new Date(value + 'T12:00:00') : value
   if (isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: '2-digit' })
 }
