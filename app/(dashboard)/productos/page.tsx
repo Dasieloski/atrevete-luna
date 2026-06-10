@@ -12,6 +12,7 @@ import { Input } from '@/src/components/ui/Input'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { cn } from '@/src/lib/utils'
 import { formatNumber, formatCurrency } from '@/src/lib/format'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface Product {
   id: string
@@ -201,6 +202,20 @@ export default function ProductosPage() {
                 {filteredProducts.length} producto
                 {filteredProducts.length !== 1 ? 's' : ''}
               </span>
+              <ExportDropdown
+                rows={filteredProducts.map((p) => ({
+                  Nombre: p.name,
+                  Descripcion: p.description || '',
+                  'Precio Almacen': p.priceWarehouse,
+                  'Precio Distribucion': p.priceDistribution,
+                  'Unidades por caja': p.unitsPerBox,
+                  Activo: p.isActive ? 'Sí' : 'No',
+                }))}
+                headers={['Nombre', 'Descripcion', 'Precio Almacen', 'Precio Distribucion', 'Unidades por caja', 'Activo']}
+                filename={`productos_${new Date().toISOString().split('T')[0]}`}
+                pdfTitle="Catálogo de Productos"
+                disabled={filteredProducts.length === 0}
+              />
             </div>
           </div>
 

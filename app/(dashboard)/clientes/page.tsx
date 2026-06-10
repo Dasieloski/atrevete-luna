@@ -14,6 +14,7 @@ import { Badge } from '@/src/components/ui/Badge'
 import { CubaMapGADM } from '@/src/components/dashboard/CubaMapGADM'
 import { cn } from '@/src/lib/utils'
 import { formatNumber, formatCurrency } from '@/src/lib/format'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface Customer {
   id: string
@@ -282,6 +283,21 @@ export default function ClientesPage() {
                 {filteredCustomers.length} cliente
                 {filteredCustomers.length !== 1 ? 's' : ''}
               </span>
+              <ExportDropdown
+                rows={filteredCustomers.map((c) => ({
+                  Nombre: c.name,
+                  Provincia: c.province,
+                  Telefono: c.phone || '',
+                  Email: c.email || '',
+                  Ventas: c.sales.length,
+                  Reservas: c.reservations.length,
+                  Activo: c.isActive ? 'Sí' : 'No',
+                }))}
+                headers={['Nombre', 'Provincia', 'Telefono', 'Email', 'Ventas', 'Reservas', 'Activo']}
+                filename={`clientes_${new Date().toISOString().split('T')[0]}`}
+                pdfTitle="Directorio de Clientes"
+                disabled={filteredCustomers.length === 0}
+              />
             </div>
           </div>
 

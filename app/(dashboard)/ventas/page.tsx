@@ -16,6 +16,7 @@ import { cn } from '@/src/lib/utils'
 import { formatDate, formatNumber, formatCurrency } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
 import { inRange } from '@/src/lib/business'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface Sale {
   id: string
@@ -392,6 +393,28 @@ export default function DistribucionPage() {
                 <span className="text-xs text-muted">
                   {filterRangeSales} venta{filterRangeSales !== 1 ? 's' : ''}
                 </span>
+                <ExportDropdown
+                  rows={filteredSales.map((s) => {
+                    const unitsPerBox = s.product.unitsPerBox || 100
+                    const boxes = Math.floor(s.quantity / unitsPerBox)
+                    return {
+                      Fecha: formatDate(s.date),
+                      Producto: s.product.name,
+                      Cliente: s.customer.name,
+                      Provincia: s.customer.province,
+                      Cajas: boxes,
+                      Unidades: s.quantity,
+                      Total: s.total,
+                      Vendedor: s.seller,
+                      Notas: s.notes || '',
+                    }
+                  })}
+                  headers={['Fecha', 'Producto', 'Cliente', 'Provincia', 'Cajas', 'Unidades', 'Total', 'Vendedor', 'Notas']}
+                  filename={`ventas_${range.from}_${range.to}`}
+                  pdfTitle="Registro de Ventas"
+                  pdfSubtitle={`Período: ${range.from} a ${range.to}`}
+                  disabled={filteredSales.length === 0}
+                />
               </div>
             </div>
 

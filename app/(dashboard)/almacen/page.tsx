@@ -25,6 +25,7 @@ import { Tabs } from '@/src/components/ui/Tabs'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { formatDate, formatNumber, todayInputDate, daysBetween } from '@/src/lib/format'
 import { inRange, type DateRange } from '@/src/lib/business'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface Stock {
   productId: string
@@ -385,6 +386,21 @@ export default function AlmacenPage() {
                 { id: 'Entrada', label: 'Entradas' },
                 { id: 'Salida', label: 'Salidas' },
               ]}
+            />
+            <ExportDropdown
+              rows={filteredMovements.map((m) => ({
+                Fecha: formatDate(m.date),
+                Tipo: m.type,
+                Producto: m.product.name,
+                Origen: m.source,
+                Cajas: m.boxes,
+                Notas: m.notes || '',
+              }))}
+              headers={['Fecha', 'Tipo', 'Producto', 'Origen', 'Cajas', 'Notas']}
+              filename={`movimientos_${range.from}_${range.to}`}
+              pdfTitle="Historial de Movimientos"
+              pdfSubtitle={`Período: ${range.from} a ${range.to}`}
+              disabled={filteredMovements.length === 0}
             />
           </div>
         </div>

@@ -28,6 +28,7 @@ import { Input } from '@/src/components/ui/Input'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { Badge } from '@/src/components/ui/Badge'
 import { EmptyState } from '@/src/components/EmptyState'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface AuditLog {
   id: string
@@ -342,6 +343,22 @@ export default function AuditoriaPage() {
             <option value="edit">Edición</option>
             <option value="delete">Eliminación</option>
           </select>
+        </div>
+        <div className="ml-auto">
+          <ExportDropdown
+            rows={filteredLogs.map((l) => ({
+              Fecha: new Date(l.createdAt).toLocaleString('es-ES'),
+              Usuario: l.userName || '—',
+              Accion: l.action,
+              Entidad: l.entity,
+              Nombre: l.entityName || '—',
+              Detalles: l.details || '',
+            }))}
+            headers={['Fecha', 'Usuario', 'Accion', 'Entidad', 'Nombre', 'Detalles']}
+            filename={`auditoria_${new Date().toISOString().split('T')[0]}`}
+            pdfTitle="Auditoría del Sistema"
+            disabled={filteredLogs.length === 0}
+          />
         </div>
       </div>
 

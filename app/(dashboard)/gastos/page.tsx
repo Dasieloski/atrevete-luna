@@ -12,6 +12,7 @@ import { Tabs } from '@/src/components/ui/Tabs'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { cn } from '@/src/lib/utils'
 import { formatDate, formatCurrency, formatNumber } from '@/src/lib/format'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 type Tab = 'expenses' | 'marketing' | 'waste' | 'events'
 
@@ -310,6 +311,61 @@ export default function EconomiaPage() {
               {currentList.length} registro
               {currentList.length !== 1 ? 's' : ''}
             </span>
+            <ExportDropdown
+              rows={(() => {
+                switch (tab) {
+                  case 'expenses':
+                    return (expenses as Expense[]).map((e) => ({
+                      Categoria: e.category,
+                      Descripcion: e.description,
+                      Monto: e.amount,
+                      Fecha: formatDate(e.date),
+                    }))
+                  case 'marketing':
+                    return (marketing as Marketing[]).map((m) => ({
+                      Titulo: m.title,
+                      Descripcion: m.description || '',
+                      Monto: m.amount,
+                      Fecha: formatDate(m.date),
+                    }))
+                  case 'waste':
+                    return (waste as Waste[]).map((w) => ({
+                      Producto: w.product.name,
+                      Cantidad: w.quantity,
+                      Razon: w.reason || '',
+                      Fecha: formatDate(w.date),
+                    }))
+                  case 'events':
+                    return (events as Event[]).map((evt) => ({
+                      Titulo: evt.title,
+                      Descripcion: evt.description || '',
+                      Fecha: formatDate(evt.date),
+                    }))
+                }
+              })()}
+              headers={(() => {
+                switch (tab) {
+                  case 'expenses':
+                  case 'marketing':
+                    return ['Categoria', 'Descripcion', 'Monto', 'Fecha']
+                  case 'waste':
+                    return ['Producto', 'Cantidad', 'Razon', 'Fecha']
+                  case 'events':
+                    return ['Titulo', 'Descripcion', 'Fecha']
+                }
+              })()}
+              filename={`${tab}_${new Date().toISOString().split('T')[0]}`}
+              pdfTitle={(() => {
+                const titles: Record<Tab, string> = {
+                  expenses: 'Historial de Gastos',
+                  marketing: 'Campañas de Marketing',
+                  waste: 'Registro de Mermas',
+                  events: 'Próximos Eventos',
+                }
+                return titles[tab]
+              })()}
+              disabled={currentList.length === 0}
+            />
           </div>
 
           <div className="overflow-x-auto">

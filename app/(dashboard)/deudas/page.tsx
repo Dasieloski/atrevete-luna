@@ -33,6 +33,7 @@ import { formatDate, formatNumber, formatCurrency } from '@/src/lib/format'
 import { DateRangeFilter } from '@/src/components/DateRangeFilter'
 import { yearStartInputDate, todayInputDate } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 interface Sale {
   id: string
@@ -535,6 +536,25 @@ export default function DeudasPage() {
               <span className="text-xs text-muted">
                 {rows.length} registro{rows.length !== 1 ? 's' : ''}
               </span>
+              <ExportDropdown
+                rows={rows.map((r) => ({
+                  Fecha: formatDate(r.date),
+                  Producto: r.product,
+                  Cliente: r.customer,
+                  Provincia: r.province,
+                  Cajas: r.boxes,
+                  'Deuda total': r.debtAmount,
+                  Pagado: r.paidAmount,
+                  Restante: r.remaining,
+                  Estado: r.remaining < -0.01 ? 'A favor' : r.isActive ? 'Pendiente' : 'Pagado',
+                  Pagos: r.paymentCount,
+                }))}
+                headers={['Fecha', 'Producto', 'Cliente', 'Provincia', 'Cajas', 'Deuda total', 'Pagado', 'Restante', 'Estado', 'Pagos']}
+                filename={`deudas_${range.from}_${range.to}`}
+                pdfTitle="Deudas por Venta"
+                pdfSubtitle={`Período: ${range.from} a ${range.to}`}
+                disabled={rows.length === 0}
+              />
             </div>
           </div>
 
