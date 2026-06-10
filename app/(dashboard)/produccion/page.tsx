@@ -12,6 +12,10 @@ import {
   TrendingUp,
   Search,
   History,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  File,
 } from 'lucide-react'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { DateRangeFilter, defaultRange } from '@/src/components/DateRangeFilter'
@@ -24,6 +28,7 @@ import { Input } from '@/src/components/ui/Input'
 import { Table, THead, TBody, TR, TH, TD, TableEmpty } from '@/src/components/ui/Table'
 import { formatDate, formatNumber, formatCurrency, todayInputDate, daysBetween } from '@/src/lib/format'
 import { inRange, type DateRange } from '@/src/lib/business'
+import { exportCSV, exportExcel, exportPDF } from '@/lib/export'
 
 interface Production {
   id: string
@@ -57,10 +62,21 @@ export default function ProduccionPage() {
     date: todayInputDate(),
     notes: '',
   })
+  const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (!exportOpen) return
+    function onClick(e: MouseEvent) {
+      const target = e.target as HTMLElement
+      if (!target.closest('.relative')) setExportOpen(false)
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
+  }, [exportOpen])
 
   async function fetchData() {
     const [prodRes, productsRes] = await Promise.all([
@@ -189,6 +205,26 @@ export default function ProduccionPage() {
   const totalUnitsForBreakdown =
     productBreakdown.reduce((s, p) => s + p.units, 0) || 1
 
+  function handleExport(format: 'csv' | 'excel' | 'pdf') {
+    if (filteredProduction.length === 0) return
+    const rows = filteredProduction.map((p) => ({
+      Fecha: formatDate(p.date),
+      Producto: p.product.name,
+      Cajas: p.boxes,
+      'Unidades por caja': p.unitsPerBox,
+      'Unidades totales': p.quantity,
+      'Precio almacén': p.product.priceWarehouse,
+      Valor: p.quantity * p.product.priceWarehouse,
+      Notas: p.notes || '',
+    }))
+    const headers = ['Fecha', 'Producto', 'Cajas', 'Unidades por caja', 'Unidades totales', 'Precio almacén', 'Valor', 'Notas']
+    const filename = `produccion_${range.from}_${range.to}`
+    if (format === 'csv') exportCSV(filename, rows, headers)
+    else if (format === 'excel') exportExcel(filename, rows, headers)
+    else exportPDF(filename, rows, headers, 'Historial de Producción', `Período: ${range.from} a ${range.to}`)
+    setExportOpen(false)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -316,6 +352,45 @@ export default function ProduccionPage() {
                 </option>
               ))}
             </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen(!exportOpen)}
+                disabled={filteredProduction.length === 0}
+                className="ts-btn-sm inline-flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Exportar
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 z-20 mt-1.5 w-44 rounded-md border border-hairline bg-canvas shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => handleExport('csv')}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface"
+                  >
+                    <FileText className="h-4 w-4 text-muted" />
+                    CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport('excel')}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 text-success" />
+                    Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExport('pdf')}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface"
+                  >
+                    <File className="h-4 w-4 text-error" />
+                    PDF
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
