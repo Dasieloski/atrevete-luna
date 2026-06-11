@@ -1,6 +1,6 @@
 export function formatDate(value: string | Date): string {
   const d = typeof value === 'string'
-    ? new Date(value.includes('T') ? value : value + 'T12:00:00')
+    ? new Date(value.includes('T') ? value.replace(/Z$/, '').replace(/\.\d{3}Z?$/, '') + 'T12:00:00' : value + 'T12:00:00')
     : value
   if (isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: '2-digit' })

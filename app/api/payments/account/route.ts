@@ -33,15 +33,7 @@ export async function POST(request: Request) {
     }
 
     let remainingAmount = +amount
-    let remainingUsdAmount = usdAmount ?? null
-    let remainingCupAmount = cupAmount ?? null
-    let remainingBoxes = boxes ?? null
-    const paymentsCreated: Array<{
-      id: string
-      debtId: string
-      amount: number
-      type: string
-    }> = []
+    const debtsToUpdate: Array<{ id: string; newPaidAmount: number; amount: number }> = []
 
     for (const debt of pendingDebts) {
       if (remainingAmount <= 0) break
@@ -50,79 +42,60 @@ export async function POST(request: Request) {
       if (debtRemaining <= 0) continue
 
       const paymentAmount = Math.min(remainingAmount, debtRemaining)
-      const isTotal = paymentAmount >= debtRemaining - 0.01
-      const isLastPayment = remainingAmount <= debtRemaining + 0.01
       const newPaidAmount = +(debt.paidAmount + paymentAmount).toFixed(2)
 
-      // Calcular valores proporcionales para este split
-      const ratio = remainingAmount > 0 ? paymentAmount / remainingAmount : 0
-      const paymentUsdAmount = usdAmount != null
-        ? isLastPayment ? remainingUsdAmount : +(remainingUsdAmount * ratio).toFixed(2)
-        : (paymentCurrency === 'USD' ? paymentAmount : null)
-      const paymentCupAmount = cupAmount != null
-        ? isLastPayment ? remainingCupAmount : +(remainingCupAmount * ratio).toFixed(2)
-        : (paymentCurrency === 'CUP' ? paymentAmount : null)
-      const paymentBoxes = boxes != null
-        ? isLastPayment ? remainingBoxes : +(remainingBoxes * ratio).toFixed(2)
-        : null
-
-      const result = await prisma.$transaction(async (tx) => {
-        const payment = await tx.debtPayment.create({
-          data: {
-            debtId: debt.id,
-            amount: paymentAmount,
-            currency: paymentCurrency,
-            usdAmount: paymentUsdAmount,
-            cupAmount: paymentCupAmount,
-            boxes: paymentBoxes,
-            exchangeRate: exchangeRate ?? null,
-            date: new Date(date),
-            notes: notes || (isTotal ? 'Pago total (a cuenta)' : 'Pago parcial (a cuenta)'),
-            type: isTotal ? 'total' : 'partial',
-          },
-        })
-
-        await tx.debt.update({
-          where: { id: debt.id },
-          data: {
-            paidAmount: newPaidAmount,
-            isActive: newPaidAmount < debt.amount - 0.01,
-          },
-        })
-
-        return payment
-      })
-
-      paymentsCreated.push({
-        id: result.id,
-        debtId: debt.id,
-        amount: paymentAmount,
-        type: isTotal ? 'total' : 'partial',
-      })
-
+      debtsToUpdate.push({ id: debt.id, newPaidAmount, amount: debt.amount })
       remainingAmount = +(remainingAmount - paymentAmount).toFixed(2)
-      if (usdAmount != null && paymentUsdAmount != null) {
-        remainingUsdAmount = +(remainingUsdAmount - paymentUsdAmount).toFixed(2)
-      }
-      if (cupAmount != null && paymentCupAmount != null) {
-        remainingCupAmount = +(remainingCupAmount - paymentCupAmount).toFixed(2)
-      }
-      if (boxes != null && paymentBoxes != null) {
-        remainingBoxes = +(remainingBoxes - paymentBoxes).toFixed(2)
-      }
     }
 
     const totalApplied = +(amount - remainingAmount).toFixed(2)
 
+    if (totalApplied <= 0) {
+      return NextResponse.json(
+        { error: 'No hay deuda que cubrir' },
+        { status: 400 }
+      )
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Crear UN SOLO DebtPayment para el pago total (sin debtId — es un pago a cuenta global)
+      const payment = await tx.debtPayment.create({
+        data: {
+          amount: totalApplied,
+          currency: paymentCurrency,
+          usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? totalApplied : null),
+          cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? totalApplied : null),
+          boxes: boxes ?? null,
+          exchangeRate: exchangeRate ?? null,
+          date: new Date(date),
+          notes: notes || 'Pago a cuenta',
+          type: 'account',
+        },
+      })
+
+      // Actualizar los paidAmount de los debts individuales
+      for (const d of debtsToUpdate) {
+        await tx.debt.update({
+          where: { id: d.id },
+          data: {
+            paidAmount: d.newPaidAmount,
+            isActive: d.newPaidAmount < d.amount - 0.01,
+          },
+        })
+      }
+
+      return payment
+    })
+
     return NextResponse.json({
-      payments: paymentsCreated,
+      payment: result,
       totalApplied,
       remainingUnapplied: remainingAmount,
-      debtsPaid: paymentsCreated.length,
+      debtsPaid: debtsToUpdate.length,
       message:
         remainingAmount > 0
-          ? `Se aplicaron $${totalApplied.toFixed(2)} a ${paymentsCreated.length} deuda(s). Sobran $${remainingAmount.toFixed(2)} sin deuda que cubrir.`
-          : `Se aplicaron $${totalApplied.toFixed(2)} a ${paymentsCreated.length} deuda(s).`,
+          ? `Se aplicaron $${totalApplied.toFixed(2)} a ${debtsToUpdate.length} deuda(s). Sobran $${remainingAmount.toFixed(2)} sin deuda que cubrir.`
+          : `Se aplicaron $${totalApplied.toFixed(2)} a ${debtsToUpdate.length} deuda(s).`,
     })
   } catch (err) {
     console.error('Account payment error:', err)

@@ -288,7 +288,7 @@ export default function DeudasPage() {
       // Product from associated debt (if any)
       const debt = p.debtId ? debtById.get(p.debtId) : undefined
       const productName =
-        debt?.transfer?.product?.name ?? debt?.sale?.product?.name ?? (p.type === 'prepayment' ? 'Adelanto' : '—')
+        debt?.transfer?.product?.name ?? debt?.sale?.product?.name ?? (p.type === 'prepayment' ? 'Adelanto' : p.type === 'account' ? 'Pago a cuenta' : '—')
 
       return {
         ...p,
@@ -397,6 +397,8 @@ export default function DeudasPage() {
         return <Badge tone="warning">Parcial</Badge>
       case 'prepayment':
         return <Badge tone="info">Adelanto</Badge>
+      case 'account':
+        return <Badge tone="primary">A cuenta</Badge>
       default:
         return <Badge tone="neutral">{type}</Badge>
     }
