@@ -335,7 +335,7 @@ export default function DeudasPage() {
       }
       setPayMsg(data.message || 'Pago registrado')
       setTimeout(() => setPayMsg(''), 4000)
-      setAccountForm({ amount: 0, currency: 'USD', boxes: 0, usdAmount: 0, cupAmount: 0, exchangeRate: 120, date: new Date().toISOString().split('T')[0], notes: '' })
+      setAccountForm({ amount: 0, currency: 'USD', boxes: 0, usdAmount: 0, cupAmount: 0, exchangeRate: 120, date: todayInputDate(), notes: '' })
       setModal(null)
       fetchAll()
     } finally {

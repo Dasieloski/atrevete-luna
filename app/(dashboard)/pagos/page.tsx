@@ -101,7 +101,7 @@ export default function PagosPage() {
     const recogidasUSDByDay = new Map<string, number>()
     for (const t of transfers) {
       if (t.fromLocation !== 'factory' || t.toLocation !== 'main') continue
-      const d = new Date(t.date).toISOString().split('T')[0]
+      const d = new Date(t.date).toLocaleDateString('en-CA')
       const ts = new Date(d + 'T00:00:00').getTime()
       if (ts < fromTs || ts > toTs) continue
       const prev = recogidasByDay.get(d) || 0
@@ -117,7 +117,7 @@ export default function PagosPage() {
     const payUSDByDay = new Map<string, number>()
     const payBoxesByDay = new Map<string, number>()
     for (const p of payments) {
-      const d = new Date(p.date).toISOString().split('T')[0]
+      const d = new Date(p.date).toLocaleDateString('en-CA')
       const ts = new Date(d + 'T00:00:00').getTime()
       if (ts < fromTs || ts > toTs) continue
       if (p.currency === 'CUP' && p.cupAmount) {
@@ -156,14 +156,14 @@ export default function PagosPage() {
     const paymentsByDay = new Map<string, number>()
 
     for (const tr of allTransfers) {
-      const d = new Date(tr.date).toISOString().split('T')[0]
+      const d = new Date(tr.date).toLocaleDateString('en-CA')
       const price = tr.product?.priceWarehouse ?? FACTORY_PRICE
       runningDebt += tr.quantity * price
       debtByDay.set(d, runningDebt)
     }
 
     for (const p of allPayments) {
-      const d = new Date(p.date).toISOString().split('T')[0]
+      const d = new Date(p.date).toLocaleDateString('en-CA')
       const usd = p.usdAmount ?? p.amount
       runningPayments += usd
       paymentsByDay.set(d, runningPayments)
@@ -185,7 +185,7 @@ export default function PagosPage() {
     const end = new Date(toStr + 'T00:00:00')
 
     for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const d = dt.toISOString().split('T')[0]
+      const d = dt.toLocaleDateString('en-CA')
 
       const recogidasCajas = recogidasByDay.get(d) || 0
       const recogidasUSD = recogidasUSDByDay.get(d) || 0

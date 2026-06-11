@@ -212,7 +212,7 @@ export default function ProductosPage() {
                   Activo: p.isActive ? 'Sí' : 'No',
                 }))}
                 headers={['Nombre', 'Descripcion', 'Precio Almacen', 'Precio Distribucion', 'Unidades por caja', 'Activo']}
-                filename={`productos_${new Date().toISOString().split('T')[0]}`}
+                filename={`productos_${new Date().toLocaleDateString('en-CA')}`}
                 pdfTitle="Catálogo de Productos"
                 disabled={filteredProducts.length === 0}
               />

@@ -355,7 +355,7 @@ export default function AuditoriaPage() {
               Detalles: l.details || '',
             }))}
             headers={['Fecha', 'Usuario', 'Accion', 'Entidad', 'Nombre', 'Detalles']}
-            filename={`auditoria_${new Date().toISOString().split('T')[0]}`}
+            filename={`auditoria_${new Date().toLocaleDateString('en-CA')}`}
             pdfTitle="Auditoría del Sistema"
             disabled={filteredLogs.length === 0}
           />

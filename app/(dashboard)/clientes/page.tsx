@@ -294,7 +294,7 @@ export default function ClientesPage() {
                   Activo: c.isActive ? 'Sí' : 'No',
                 }))}
                 headers={['Nombre', 'Provincia', 'Telefono', 'Email', 'Ventas', 'Reservas', 'Activo']}
-                filename={`clientes_${new Date().toISOString().split('T')[0]}`}
+                filename={`clientes_${new Date().toLocaleDateString('en-CA')}`}
                 pdfTitle="Directorio de Clientes"
                 disabled={filteredCustomers.length === 0}
               />

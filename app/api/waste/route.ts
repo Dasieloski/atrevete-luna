@@ -19,7 +19,12 @@ export async function POST(request: Request) {
   if (error) return error
 
   const data = await request.json()
-  const record = await prisma.waste.create({ data })
+  const record = await prisma.waste.create({
+    data: {
+      ...data,
+      date: data.date ? new Date(data.date + 'T00:00:00') : undefined,
+    },
+  })
 
   await logAudit({
     userId: user.id,

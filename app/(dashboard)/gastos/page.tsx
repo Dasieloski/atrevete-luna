@@ -11,7 +11,7 @@ import { Button } from '@/src/components/ui/Button'
 import { Tabs } from '@/src/components/ui/Tabs'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { cn } from '@/src/lib/utils'
-import { formatDate, formatCurrency, formatNumber } from '@/src/lib/format'
+import { formatDate, formatCurrency, formatNumber, todayInputDate } from '@/src/lib/format'
 import { ExportDropdown } from '@/src/components/ExportDropdown'
 
 type Tab = 'expenses' | 'marketing' | 'waste' | 'events'
@@ -68,24 +68,24 @@ export default function EconomiaPage() {
     category: '',
     description: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
   })
   const [marketingForm, setMarketingForm] = useState({
     title: '',
     description: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
   })
   const [wasteForm, setWasteForm] = useState({
     productId: '',
     quantity: 0,
     reason: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
   })
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
   })
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function EconomiaPage() {
       category: '',
       description: '',
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
     })
     setShowModal(false)
     setExpenses(await fetch('/api/expenses').then((r) => r.json()))
@@ -142,7 +142,7 @@ export default function EconomiaPage() {
       title: '',
       description: '',
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
     })
     setShowModal(false)
     setMarketing(await fetch('/api/marketing').then((r) => r.json()))
@@ -159,7 +159,7 @@ export default function EconomiaPage() {
       productId: '',
       quantity: 0,
       reason: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
     })
     setShowModal(false)
     setWaste(await fetch('/api/waste').then((r) => r.json()))
@@ -175,7 +175,7 @@ export default function EconomiaPage() {
     setEventForm({
       title: '',
       description: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
     })
     setShowModal(false)
     setEvents(await fetch('/api/events').then((r) => r.json()))
@@ -354,7 +354,7 @@ export default function EconomiaPage() {
                     return ['Titulo', 'Descripcion', 'Fecha']
                 }
               })()}
-              filename={`${tab}_${new Date().toISOString().split('T')[0]}`}
+              filename={`${tab}_${todayInputDate()}`}
               pdfTitle={(() => {
                 const titles: Record<Tab, string> = {
                   expenses: 'Historial de Gastos',
