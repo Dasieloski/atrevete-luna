@@ -1,4 +1,4 @@
-'use client'
+	'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -389,7 +389,7 @@ export default function PagosPage() {
                     colSpan={2}
                     className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-error bg-error-soft/30"
                   >
-                    Pendientes
+                    Pendientes de Pago
                   </th>
                 </tr>
 
