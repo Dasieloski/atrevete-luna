@@ -54,28 +54,34 @@ export async function DELETE(
     const productToDelete = await prisma.product.findUnique({ where: { id }, select: { name: true } })
 
     await prisma.$transaction(async (tx) => {
-    await tx.waste.deleteMany({ where: { productId: id } })
-    await tx.transfer.deleteMany({ where: { productId: id } })
-    await tx.reservation.deleteMany({ where: { productId: id } })
-    await tx.warehouseStock.deleteMany({ where: { productId: id } })
-    await tx.production.deleteMany({ where: { productId: id } })
+      await tx.waste.deleteMany({ where: { productId: id } })
+      await tx.reservation.deleteMany({ where: { productId: id } })
+      await tx.warehouseStock.deleteMany({ where: { productId: id } })
 
-    const sales = await tx.sale.findMany({ where: { productId: id }, select: { id: true } })
-    const saleIds = sales.map((s) => s.id)
+      const transfers = await tx.transfer.findMany({ where: { productId: id }, select: { id: true } })
+      const transferIds = transfers.map((t) => t.id)
 
-    if (saleIds.length > 0) {
-      const debts = await tx.debt.findMany({ where: { saleId: { in: saleIds } }, select: { id: true } })
-      const debtIds = debts.map((d) => d.id)
+      if (transferIds.length > 0) {
+        const debts = await tx.debt.findMany({ where: { transferId: { in: transferIds } }, select: { id: true } })
+        const debtIds = debts.map((d) => d.id)
 
-      if (debtIds.length > 0) {
-        await tx.debtPayment.deleteMany({ where: { debtId: { in: debtIds } } })
-        await tx.debt.deleteMany({ where: { id: { in: debtIds } } })
+        if (debtIds.length > 0) {
+          await tx.debtPayment.deleteMany({ where: { debtId: { in: debtIds } } })
+          await tx.debt.deleteMany({ where: { id: { in: debtIds } } })
+        }
+
+        await tx.transfer.deleteMany({ where: { id: { in: transferIds } } })
       }
 
-      await tx.sale.deleteMany({ where: { id: { in: saleIds } } })
-    }
+      const sales = await tx.sale.findMany({ where: { productId: id }, select: { id: true } })
+      const saleIds = sales.map((s) => s.id)
 
-    await tx.product.delete({ where: { id } })
+      if (saleIds.length > 0) {
+        await tx.sale.deleteMany({ where: { id: { in: saleIds } } })
+      }
+
+      await tx.production.deleteMany({ where: { productId: id } })
+      await tx.product.delete({ where: { id } })
     })
 
     await logAudit({

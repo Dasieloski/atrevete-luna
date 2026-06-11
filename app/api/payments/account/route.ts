@@ -8,7 +8,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { amount, date, notes } = body
+    const { amount, date, notes, currency, usdAmount, cupAmount, boxes, exchangeRate } = body
 
     if (!amount || amount <= 0) {
       return NextResponse.json(
@@ -16,6 +16,8 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const paymentCurrency = currency === 'CUP' ? 'CUP' : 'USD'
 
     // Todas las deudas pendientes, ordenadas por fecha (más antiguas primero)
     const pendingDebts = await prisma.debt.findMany({
@@ -53,6 +55,11 @@ export async function POST(request: Request) {
           data: {
             debtId: debt.id,
             amount: paymentAmount,
+            currency: paymentCurrency,
+            usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? paymentAmount : null),
+            cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? paymentAmount : null),
+            boxes: boxes ?? null,
+            exchangeRate: exchangeRate ?? null,
             date: new Date(date),
             notes: notes || (isTotal ? 'Pago total (a cuenta)' : 'Pago parcial (a cuenta)'),
             type: isTotal ? 'total' : 'partial',

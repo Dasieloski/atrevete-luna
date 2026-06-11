@@ -21,6 +21,10 @@ type PresetKey =
   | 'lastWeek'
   | 'thisMonth'
   | 'lastMonth'
+  | 'thisQuarter'
+  | 'lastQuarter'
+  | 'thisSemester'
+  | 'lastSemester'
   | 'thisYear'
   | 'lastYear'
   | 'all'
@@ -87,6 +91,49 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       return { from: start, to: end }
     },
   },
+  thisQuarter: {
+    label: 'Este trimestre',
+    get: () => {
+      const d = new Date()
+      const q = Math.floor(d.getMonth() / 3)
+      const start = new Date(d.getFullYear(), q * 3, 1).toISOString().split('T')[0]
+      const end = todayInputDate()
+      return { from: start, to: end }
+    },
+  },
+  lastQuarter: {
+    label: 'Trimestre pasado',
+    get: () => {
+      const d = new Date()
+      const q = Math.floor(d.getMonth() / 3) - 1
+      const year = d.getFullYear() + (q < 0 ? -1 : 0)
+      const actualQ = q < 0 ? 3 : q
+      const start = new Date(year, actualQ * 3, 1).toISOString().split('T')[0]
+      const end = new Date(year, actualQ * 3 + 3, 0).toISOString().split('T')[0]
+      return { from: start, to: end }
+    },
+  },
+  thisSemester: {
+    label: 'Este semestre',
+    get: () => {
+      const d = new Date()
+      const s = d.getMonth() < 6 ? 0 : 6
+      const start = new Date(d.getFullYear(), s, 1).toISOString().split('T')[0]
+      const end = todayInputDate()
+      return { from: start, to: end }
+    },
+  },
+  lastSemester: {
+    label: 'Semestre pasado',
+    get: () => {
+      const d = new Date()
+      const s = d.getMonth() < 6 ? 6 : 0
+      const year = d.getMonth() < 6 ? d.getFullYear() - 1 : d.getFullYear()
+      const start = new Date(year, s, 1).toISOString().split('T')[0]
+      const end = new Date(year, s + 6, 0).toISOString().split('T')[0]
+      return { from: start, to: end }
+    },
+  },
   thisYear: {
     label: 'Este año',
     get: () => {
@@ -112,7 +159,12 @@ const DEFAULT_PRESETS: PresetKey[] = [
   'thisWeek',
   'thisMonth',
   'lastMonth',
+  'thisQuarter',
+  'lastQuarter',
+  'thisSemester',
+  'lastSemester',
   'thisYear',
+  'lastYear',
   'all',
 ]
 

@@ -24,12 +24,14 @@ import {
   Moon,
   Monitor,
   ClipboardList,
+  Receipt,
 } from 'lucide-react'
 import { cn } from '@/src/lib/utils'
 import { useTheme, type Theme } from '@/src/lib/theme'
 
 export type NavIconName =
   | 'dashboard'
+  | 'pagos'
   | 'produccion'
   | 'almacen'
   | 'ventas'
@@ -45,6 +47,7 @@ export type NavIconName =
 
 const ICONS: Record<NavIconName, ComponentType<{ className?: string }>> = {
   dashboard: LayoutDashboard,
+  pagos: Receipt,
   produccion: Factory,
   almacen: Warehouse,
   ventas: ShoppingCart,

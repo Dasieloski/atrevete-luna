@@ -68,6 +68,18 @@ export async function POST(request: Request) {
       create: { productId: data.productId, location: data.toLocation, quantity },
     })
 
+    // Crear deuda automática cuando se recoge de la fábrica
+    const debtAmount = +(boxes * product.priceWarehouse * unitsPerBox).toFixed(2)
+    await prisma.debt.create({
+      data: {
+        type: 'transfer',
+        amount: debtAmount,
+        date: new Date(data.date),
+        notes: `Recogida — ${product.name} — ${boxes} caja(s) de ${data.fromLocation} a ${data.toLocation}`,
+        transferId: transfer.id,
+      },
+    })
+
     await logAudit({
       userId: user.id,
       userName: user.name,

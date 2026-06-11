@@ -57,6 +57,8 @@ interface ProductionRecord {
 interface TransferRecord {
   id: string
   productId: string
+  fromLocation: string
+  toLocation: string
   quantity: number
   date: string
   product: ProductInfo
@@ -218,6 +220,18 @@ function buildDailyData(
     day.factoryValue = factoryVal
     day.warehouseValue = warehouseVal
     day.distributionValue = distVal
+  }
+
+  // Re-calculate factoryValue based on transfers from factory to main (recogidas)
+  // This overrides the production-based factoryValue
+  for (const t of transfers) {
+    if (t.fromLocation === 'factory' && t.toLocation === 'main') {
+      const key = t.date.slice(0, 10)
+      if (map[key]) {
+        const price = priceMap[t.productId] || 0
+        map[key].factoryValue += t.quantity * price
+      }
+    }
   }
 
   return map

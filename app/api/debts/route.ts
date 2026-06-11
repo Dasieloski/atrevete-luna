@@ -20,6 +20,11 @@ export async function GET(request: Request) {
           customer: { select: { id: true, name: true, province: true } },
         },
       },
+      transfer: {
+        include: {
+          product: { select: { id: true, name: true, priceWarehouse: true, unitsPerBox: true } },
+        },
+      },
     },
     orderBy: { date: 'desc' },
   })

@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "DebtPayment" ADD COLUMN     "boxes" DOUBLE PRECISION,
+ADD COLUMN     "cupAmount" DOUBLE PRECISION,
+ADD COLUMN     "currency" TEXT NOT NULL DEFAULT 'USD',
+ADD COLUMN     "exchangeRate" DOUBLE PRECISION,
+ADD COLUMN     "usdAmount" DOUBLE PRECISION;

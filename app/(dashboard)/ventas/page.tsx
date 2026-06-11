@@ -303,7 +303,7 @@ export default function DistribucionPage() {
       <PageHeader
         eyebrow="Cadena de suministro · 3 / 3"
         title="Distribución y ventas"
-        description="Registra las ventas del día a los distribuidores y consulta el historial completo. Cada venta descuenta stock del almacén y genera una deuda automática."
+        description="Registra las ventas del día a los distribuidores y consulta el historial completo. Cada venta descuenta stock del almacén. Las deudas con la fábrica se generan automáticamente al registrar la producción."
         actions={
           <PermissionGuard module="ventas" action="create">
             <Button
@@ -659,7 +659,7 @@ export default function DistribucionPage() {
       {showModal && (
         <Modal
           title="Registrar venta"
-          subtitle="La venta descuenta stock del almacén y genera una deuda automática."
+          subtitle="La venta descuenta stock del almacén. Las deudas con la fábrica se generan automáticamente al registrar la producción."
           onClose={closeModal}
           size="lg"
           footer={

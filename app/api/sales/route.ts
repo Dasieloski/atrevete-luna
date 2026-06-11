@@ -60,17 +60,6 @@ export async function POST(request: Request) {
         data: { quantity: { decrement: quantity } },
       })
 
-      const debtAmount = +(boxes * product.priceWarehouse * product.unitsPerBox).toFixed(2)
-      await tx.debt.create({
-        data: {
-          type: 'sale',
-          amount: debtAmount,
-          date: new Date(data.date),
-          notes: `Venta #${sale.id.slice(0, 8)} — ${product.name} — ${boxes} caja(s)`,
-          saleId: sale.id,
-        },
-      })
-
       return sale
     })
 

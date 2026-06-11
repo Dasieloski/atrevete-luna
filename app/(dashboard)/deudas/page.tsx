@@ -35,19 +35,6 @@ import { yearStartInputDate, todayInputDate } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
 import { ExportDropdown } from '@/src/components/ExportDropdown'
 
-interface Sale {
-  id: string
-  productId: string
-  customerId: string
-  quantity: number
-  total: number
-  date: string
-  seller: string
-  notes: string | null
-  product: { id: string; name: string; priceWarehouse: number; priceDistribution: number; unitsPerBox: number }
-  customer: { id: string; name: string; province: string }
-}
-
 interface Debt {
   id: string
   type: string
@@ -56,14 +43,21 @@ interface Debt {
   date: string
   isActive: boolean
   saleId: string | null
+  transferId: string | null
   notes: string | null
   payments: { id: string; amount: number; date: string; type: string; notes: string | null }[]
   sale?: { product?: { name: string } }
+  transfer?: { product?: { name: string; unitsPerBox: number }; quantity: number }
 }
 
 interface Payment {
   id: string
   amount: number
+  currency: string
+  usdAmount: number | null
+  cupAmount: number | null
+  boxes: number | null
+  exchangeRate: number | null
   date: string
   type: string
   notes: string | null
@@ -78,7 +72,6 @@ function defaultYearRange(): DateRange {
 }
 
 export default function DeudasPage() {
-  const [sales, setSales] = useState<Sale[]>([])
   const [debts, setDebts] = useState<Debt[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [range, setRange] = useState<DateRange>(defaultYearRange)
@@ -87,6 +80,11 @@ export default function DeudasPage() {
   const [modal, setModal] = useState<ModalKind>(null)
   const [accountForm, setAccountForm] = useState({
     amount: 0,
+    currency: 'USD' as 'USD' | 'CUP',
+    boxes: 0,
+    usdAmount: 0,
+    cupAmount: 0,
+    exchangeRate: 120,
     date: new Date().toISOString().split('T')[0],
     notes: '',
   })
@@ -114,17 +112,14 @@ export default function DeudasPage() {
     setLoading(true)
     setError('')
     try {
-      const [salesRes, debtsRes, paymentsRes] = await Promise.all([
-        fetch('/api/sales'),
+      const [debtsRes, paymentsRes] = await Promise.all([
         fetch('/api/debts'),
         fetch('/api/payments'),
       ])
 
-      if (!salesRes.ok) throw new Error('Error cargando ventas')
       if (!debtsRes.ok) throw new Error('Error cargando deudas')
       if (!paymentsRes.ok) throw new Error('Error cargando pagos')
 
-      setSales(await salesRes.json())
       setDebts(await debtsRes.json())
       setPayments(await paymentsRes.json())
     } catch (err) {
@@ -133,14 +128,6 @@ export default function DeudasPage() {
       setLoading(false)
     }
   }
-
-  const debtBySaleId = useMemo(() => {
-    const m = new Map<string, Debt>()
-    for (const d of debts) {
-      if (d.saleId) m.set(d.saleId, d)
-    }
-    return m
-  }, [debts])
 
   const debtById = useMemo(() => {
     const m = new Map<string, Debt>()
@@ -162,45 +149,45 @@ export default function DeudasPage() {
     const fromTs = new Date(range.from + 'T00:00:00').getTime()
     const toTs = new Date(range.to + 'T23:59:59').getTime()
 
-    const saleRows = sales
+    const debtRows = debts
       .filter(
-        (s) =>
-          new Date(s.date).getTime() >= fromTs &&
-          new Date(s.date).getTime() <= toTs
+        (d) =>
+          new Date(d.date).getTime() >= fromTs &&
+          new Date(d.date).getTime() <= toTs
       )
-      .map((s) => {
-        const debt = debtBySaleId.get(s.id)
-        const debtAmount = debt?.amount ?? +(s.product.priceWarehouse * s.quantity).toFixed(2)
-        const paidAmount = debt?.paidAmount ?? 0
-        const remaining = +(debtAmount - paidAmount).toFixed(2)
-        const isActive = debt ? debt.isActive : true
-        const paymentCount = debt?.payments?.length ?? 0
+      .map((d) => {
+        const remaining = +(d.amount - d.paidAmount).toFixed(2)
+        const upb = d.transfer?.product?.unitsPerBox || 100
+        const boxes = d.transfer
+          ? Math.floor(d.transfer.quantity / upb)
+          : 0
+        const productName = d.transfer?.product?.name ?? d.sale?.product?.name ?? '—'
+        const isActive = d.isActive
+        const paymentCount = d.payments?.length ?? 0
         return {
-          id: s.id,
-          date: s.date,
-          product: s.product.name,
-          customer: s.customer.name,
-          province: s.customer.province,
-          boxes: Math.floor(s.quantity / (s.product.unitsPerBox || 100)),
-          units: s.quantity,
-          debtAmount,
-          paidAmount,
+          id: d.id,
+          date: d.date,
+          product: productName,
+          type: d.type,
+          notes: d.notes,
+          boxes,
+          debtAmount: d.amount,
+          paidAmount: d.paidAmount,
           remaining,
           isActive,
-          debtId: debt?.id ?? null,
+          debtId: d.id,
           paymentCount,
-          payments: debt?.payments ?? [],
+          payments: d.payments ?? [],
         }
       })
 
-    return saleRows
+    return debtRows
       .filter((r) => {
         if (!search) return true
         const t = search.toLowerCase()
         return (
           r.product.toLowerCase().includes(t) ||
-          r.customer.toLowerCase().includes(t) ||
-          r.province.toLowerCase().includes(t)
+          (r.notes?.toLowerCase().includes(t) ?? false)
         )
       })
       .filter((r) => {
@@ -209,7 +196,7 @@ export default function DeudasPage() {
         return true
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [sales, debtBySaleId, range, search, statusFilter])
+  }, [debts, range, search, statusFilter])
 
   const totals = useMemo(() => {
     let deuda = 0,
@@ -262,7 +249,7 @@ export default function DeudasPage() {
       // Product from associated debt (if any)
       const debt = p.debtId ? debtById.get(p.debtId) : undefined
       const productName =
-        debt?.sale?.product?.name || (p.type === 'prepayment' ? 'Adelanto' : '—')
+        debt?.transfer?.product?.name ?? debt?.sale?.product?.name ?? (p.type === 'prepayment' ? 'Adelanto' : '—')
 
       return {
         ...p,
@@ -293,6 +280,11 @@ export default function DeudasPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: accountForm.amount,
+          currency: accountForm.currency,
+          usdAmount: accountForm.currency === 'USD' ? accountForm.usdAmount : accountForm.cupAmount / accountForm.exchangeRate,
+          cupAmount: accountForm.currency === 'CUP' ? accountForm.cupAmount : accountForm.usdAmount * accountForm.exchangeRate,
+          boxes: accountForm.boxes || null,
+          exchangeRate: accountForm.exchangeRate || null,
           date: accountForm.date,
           notes: accountForm.notes || null,
         }),
@@ -304,7 +296,7 @@ export default function DeudasPage() {
       }
       setPayMsg(data.message || 'Pago registrado')
       setTimeout(() => setPayMsg(''), 4000)
-      setAccountForm({ amount: 0, date: new Date().toISOString().split('T')[0], notes: '' })
+      setAccountForm({ amount: 0, currency: 'USD', boxes: 0, usdAmount: 0, cupAmount: 0, exchangeRate: 120, date: new Date().toISOString().split('T')[0], notes: '' })
       setModal(null)
       fetchAll()
     } finally {
@@ -504,19 +496,19 @@ export default function DeudasPage() {
         ]}
       />
 
-      {/* Tab: Deudas por venta */}
+      {/* Tab: Deudas por recogida */}
       {activeTab === 'debts' && (
         <section className="ts-card overflow-hidden">
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted" />
-              <h2 className="text-sm font-medium text-ink">Deudas por venta</h2>
+              <h2 className="text-sm font-medium text-ink">Deudas por recogida</h2>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Input
                 type="text"
-                placeholder="Buscar producto, cliente, provincia…"
+                placeholder="Buscar producto, notas…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 leadingIcon={<Search className="h-3.5 w-3.5" />}
@@ -540,8 +532,8 @@ export default function DeudasPage() {
                 rows={rows.map((r) => ({
                   Fecha: formatDate(r.date),
                   Producto: r.product,
-                  Cliente: r.customer,
-                  Provincia: r.province,
+                  Tipo: r.type,
+                  Notas: r.notes || '',
                   Cajas: r.boxes,
                   'Deuda total': r.debtAmount,
                   Pagado: r.paidAmount,
@@ -549,9 +541,9 @@ export default function DeudasPage() {
                   Estado: r.remaining < -0.01 ? 'A favor' : r.isActive ? 'Pendiente' : 'Pagado',
                   Pagos: r.paymentCount,
                 }))}
-                headers={['Fecha', 'Producto', 'Cliente', 'Provincia', 'Cajas', 'Deuda total', 'Pagado', 'Restante', 'Estado', 'Pagos']}
+                headers={['Fecha', 'Producto', 'Tipo', 'Notas', 'Cajas', 'Deuda total', 'Pagado', 'Restante', 'Estado', 'Pagos']}
                 filename={`deudas_${range.from}_${range.to}`}
-                pdfTitle="Deudas por Venta"
+                pdfTitle="Deudas por Recogida"
                 pdfSubtitle={`Período: ${range.from} a ${range.to}`}
                 disabled={rows.length === 0}
               />
@@ -561,8 +553,8 @@ export default function DeudasPage() {
           {rows.length === 0 ? (
             <EmptyState
               icon={CreditCard}
-              title="Sin ventas en este período"
-              description="No hay ventas que generen deuda en el rango de fechas seleccionado."
+              title="Sin recogidas en este período"
+              description="No hay recogidas que generen deuda en el rango de fechas seleccionado."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -572,7 +564,7 @@ export default function DeudasPage() {
                     <TH className="w-8" />
                     <TH>Fecha</TH>
                     <TH>Producto</TH>
-                    <TH>Cliente</TH>
+                    <TH>Tipo</TH>
                     <TH className="text-center">Cajas</TH>
                     <TH className="text-right">Deuda total</TH>
                     <TH className="text-right">Pagado</TH>
@@ -616,10 +608,7 @@ export default function DeudasPage() {
                         </TD>
                         <TD className="font-medium text-ink">{r.product}</TD>
                         <TD>
-                          {r.customer}
-                          <span className="ml-1 text-xs text-muted">
-                            · {r.province}
-                          </span>
+                          {r.type === 'transfer' ? 'Recogida' : r.type === 'manual' ? 'Manual' : r.type}
                         </TD>
                         <TD className="text-center font-mono">
                           {formatNumber(r.boxes)}
@@ -677,7 +666,7 @@ export default function DeudasPage() {
                             <div className="border-t border-hairline-soft px-6 py-4">
                               <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                                 <Receipt className="h-4 w-4 text-blue" />
-                                Historial de pagos — {r.product} · {r.customer}
+                                Historial de pagos — {r.product}
                               </h4>
                               <div className="overflow-x-auto rounded-lg border border-hairline-soft">
                                 <table className="w-full text-sm">
@@ -765,9 +754,10 @@ export default function DeudasPage() {
                   ))}
                   {/* Totals row */}
                   <TR className="bg-surface font-medium hover:bg-surface">
-                    <TD colSpan={5} className="text-right uppercase tracking-wider text-ink">
+                    <TD colSpan={4} className="text-right uppercase tracking-wider text-ink">
                       Total
                     </TD>
+                    <TD colSpan={1} />
                     <TD className="text-right font-mono text-primary">
                       {formatCurrency(totals.deuda)}
                     </TD>
@@ -821,10 +811,11 @@ export default function DeudasPage() {
                     <TH>Fecha</TH>
                     <TH>Tipo</TH>
                     <TH>Producto</TH>
-                    <TH className="text-right">Monto pagado</TH>
-                    <TH className="text-right">Equiv. cajas</TH>
+                    <TH className="text-right">USD</TH>
+                    <TH className="text-right">CUP</TH>
+                    <TH className="text-right">Cajas</TH>
                     <TH className="text-right">Deuda original</TH>
-                    <TH className="text-right">Saldo restante a pagar</TH>
+                    <TH className="text-right">Saldo restante</TH>
                     <TH>Notas</TH>
                   </TR>
                 </THead>
@@ -837,12 +828,15 @@ export default function DeudasPage() {
                       <TD>{getPaymentTypeBadge(p.type)}</TD>
                       <TD className="text-ink">{p.productName}</TD>
                       <TD className="text-right font-mono font-medium text-success">
-                        {formatCurrency(p.amount)}
+                        {formatCurrency(p.usdAmount ?? p.amount)}
                       </TD>
                       <TD className="text-right font-mono text-slate">
-                        {avgPricePerBox > 0
-                          ? `${formatNumber(Math.round(p.amount / avgPricePerBox))} cjs`
+                        {p.currency === 'CUP' && p.cupAmount
+                          ? formatNumber(p.cupAmount)
                           : '—'}
+                      </TD>
+                      <TD className="text-right font-mono text-slate">
+                        {p.boxes ? `${formatNumber(p.boxes)} cjs` : '—'}
                       </TD>
                       <TD className="text-right font-mono text-ink">
                         {formatCurrency(p.deudaOriginal)}
@@ -896,53 +890,187 @@ export default function DeudasPage() {
               )}
             </div>
 
-            {/* Monto */}
+            {/* Moneda */}
             <div>
-              <label className="ts-label">Monto a pagar</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">
-                  $
-                </span>
+              <label className="ts-label">Moneda</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountForm({ ...accountForm, currency: 'USD' })}
+                  className={cn(
+                    'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                    accountForm.currency === 'USD'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-hairline bg-canvas text-charcoal hover:bg-surface'
+                  )}
+                >
+                  USD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountForm({ ...accountForm, currency: 'CUP' })}
+                  className={cn(
+                    'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                    accountForm.currency === 'CUP'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-hairline bg-canvas text-charcoal hover:bg-surface'
+                  )}
+                >
+                  CUP
+                </button>
+              </div>
+            </div>
+
+            {/* Tasa de cambio (solo CUP) */}
+            {accountForm.currency === 'CUP' && (
+              <div>
+                <label className="ts-label">Tasa CUP/USD</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0.01"
-                  value={accountForm.amount || ''}
-                  onChange={(e) =>
+                  value={accountForm.exchangeRate || ''}
+                  onChange={(e) => {
+                    const rate = parseFloat(e.target.value) || 0
+                    const usd = rate > 0 ? accountForm.cupAmount / rate : 0
+                    const boxes = usd > 0 ? usd / 0.49 / 100 : 0
                     setAccountForm({
                       ...accountForm,
-                      amount: parseFloat(e.target.value) || 0,
+                      exchangeRate: rate,
+                      usdAmount: +usd.toFixed(2),
+                      amount: +usd.toFixed(2),
+                      boxes: +boxes.toFixed(2),
                     })
-                  }
-                  required
+                  }}
+                  className="ts-input"
+                  placeholder="120.00"
+                />
+              </div>
+            )}
+
+            {/* Cajas */}
+            <div>
+              <label className="ts-label">Cajas pagadas</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={accountForm.boxes || ''}
+                onChange={(e) => {
+                  const boxes = parseFloat(e.target.value) || 0
+                  const usd = boxes * 100 * 0.49
+                  const cup = accountForm.currency === 'CUP' && accountForm.exchangeRate > 0
+                    ? usd * accountForm.exchangeRate
+                    : 0
+                  setAccountForm({
+                    ...accountForm,
+                    boxes,
+                    usdAmount: +usd.toFixed(2),
+                    amount: +usd.toFixed(2),
+                    cupAmount: cup > 0 ? +cup.toFixed(2) : accountForm.cupAmount,
+                  })
+                }}
+                className="ts-input"
+                placeholder="0"
+              />
+              <p className="mt-1 text-xs text-muted">
+                1 caja = 100 unidades × $0.49 = $49.00
+              </p>
+            </div>
+
+            {/* USD */}
+            <div>
+              <label className="ts-label">Equivalente en USD</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={accountForm.usdAmount || ''}
+                  onChange={(e) => {
+                    const usd = parseFloat(e.target.value) || 0
+                    const boxes = usd > 0 ? usd / 0.49 / 100 : 0
+                    const cup = accountForm.currency === 'CUP' && accountForm.exchangeRate > 0
+                      ? usd * accountForm.exchangeRate
+                      : 0
+                    setAccountForm({
+                      ...accountForm,
+                      usdAmount: usd,
+                      amount: usd,
+                      boxes: +boxes.toFixed(2),
+                      cupAmount: cup > 0 ? +cup.toFixed(2) : accountForm.cupAmount,
+                    })
+                  }}
                   className="ts-input pl-7"
                   placeholder="0.00"
                 />
               </div>
-              {accountForm.amount > 0 && avgPricePerBox > 0 && (
-                <p className="mt-1.5 text-xs text-muted">
-                  Equivale a aprox.{' '}
-                  <span className="font-semibold text-ink">
-                    {formatNumber(Math.round(accountForm.amount / avgPricePerBox))} cajas
-                  </span>{' '}
-                  (a ${formatCurrency(avgPricePerBox)} / caja)
-                </p>
-              )}
-              {accountForm.amount > 0 && accountForm.amount < totals.restante - 0.01 && (
-                <p className="mt-1.5 text-xs text-warning">
-                  Después de este pago quedarán{' '}
-                  <span className="font-semibold">
-                    {formatCurrency(+(totals.restante - accountForm.amount).toFixed(2))}
-                  </span>{' '}
-                  pendientes
-                </p>
-              )}
-              {accountForm.amount >= totals.restante - 0.01 && accountForm.amount > 0 && (
-                <p className="mt-1.5 text-xs text-success">
-                  Este pago cubre o excede el saldo pendiente total
-                </p>
-              )}
             </div>
+
+            {/* CUP (solo si CUP) */}
+            {accountForm.currency === 'CUP' && (
+              <div>
+                <label className="ts-label">Monto en CUP</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={accountForm.cupAmount || ''}
+                    onChange={(e) => {
+                      const cup = parseFloat(e.target.value) || 0
+                      const usd = accountForm.exchangeRate > 0 ? cup / accountForm.exchangeRate : 0
+                      const boxes = usd > 0 ? usd / 0.49 / 100 : 0
+                      setAccountForm({
+                        ...accountForm,
+                        cupAmount: cup,
+                        usdAmount: +usd.toFixed(2),
+                        amount: +usd.toFixed(2),
+                        boxes: +boxes.toFixed(2),
+                      })
+                    }}
+                    className="ts-input pl-7"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Resumen del pago */}
+            {accountForm.amount > 0 && (
+              <div className="space-y-1 rounded-xl border border-hairline-soft bg-surface p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate">Cajas:</span>
+                  <span className="font-medium text-ink">{formatNumber(accountForm.boxes)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate">USD:</span>
+                  <span className="font-medium text-ink">{formatCurrency(accountForm.usdAmount)}</span>
+                </div>
+                {accountForm.currency === 'CUP' && (
+                  <div className="flex justify-between">
+                    <span className="text-slate">CUP:</span>
+                    <span className="font-medium text-ink">{formatNumber(accountForm.cupAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-hairline pt-1">
+                  <span className="text-slate">Total a pagar:</span>
+                  <span className="font-semibold text-primary">{formatCurrency(accountForm.amount)}</span>
+                </div>
+                {accountForm.amount < totals.restante - 0.01 && (
+                  <p className="text-xs text-warning">
+                    Quedarán {formatCurrency(+(totals.restante - accountForm.amount).toFixed(2))} pendientes
+                  </p>
+                )}
+                {accountForm.amount >= totals.restante - 0.01 && (
+                  <p className="text-xs text-success">
+                    Este pago cubre o excede el saldo pendiente
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Fecha */}
             <div>
@@ -1072,7 +1200,7 @@ export default function DeudasPage() {
       {modal === 'manual' && (
         <Modal
           title="Registrar deuda manual"
-          subtitle="Crea una deuda que no está vinculada a una venta existente."
+          subtitle="Crea una deuda que no está vinculada a una recogida existente."
           onClose={() => setModal(null)}
           footer={
             <>

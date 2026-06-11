@@ -101,6 +101,7 @@ model Transfer {
   createdAt       DateTime @default(now())
   
   product         Product  @relation(fields: [productId], references: [id])
+  debts           Debt[]
 }
 
 model Customer {
@@ -131,7 +132,7 @@ model Sale {
   
   product    Product  @relation(fields: [productId], references: [id])
   customer   Customer @relation(fields: [customerId], references: [id])
-  debt       Debt?
+  debts      Debt[]
 }
 
 model Waste {
@@ -180,32 +181,39 @@ model Payment {
 }
 
 model Debt {
-  id          String   @id @default(cuid())
-  type        String   @default("manual")
-  amount      Float
-  paidAmount  Float    @default(0)
-  date        DateTime @default(now())
-  dueDate     DateTime?
-  notes       String?
-  isActive    Boolean  @default(true)
-  saleId      String?  @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  type          String   @default("manual")
+  amount        Float
+  paidAmount    Float    @default(0)
+  date          DateTime @default(now())
+  dueDate       DateTime?
+  notes         String?
+  isActive      Boolean  @default(true)
+  saleId        String?
+  transferId    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
-  payments    DebtPayment[]
-  sale        Sale?    @relation(fields: [saleId], references: [id])
+  payments      DebtPayment[]
+  sale          Sale?    @relation(fields: [saleId], references: [id])
+  transfer      Transfer? @relation(fields: [transferId], references: [id])
 }
 
 model DebtPayment {
-  id         String   @id @default(cuid())
-  debtId     String?
-  amount     Float
-  date       DateTime @default(now())
-  notes      String?
-  type       String   @default("partial")
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  debtId        String?
+  amount        Float
+  currency      String   @default("USD") // USD or CUP
+  usdAmount     Float?
+  cupAmount     Float?
+  boxes         Float?
+  exchangeRate  Float?   // CUP per USD
+  date          DateTime @default(now())
+  notes         String?
+  type          String   @default("partial")
+  createdAt     DateTime @default(now())
   
-  debt       Debt?    @relation(fields: [debtId], references: [id])
+  debt          Debt?    @relation(fields: [debtId], references: [id])
 }
 
 model Reservation {

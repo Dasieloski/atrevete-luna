@@ -23,6 +23,11 @@ export async function GET(request: Request) {
               customer: { select: { id: true, name: true, province: true } },
             },
           },
+          transfer: {
+            include: {
+              product: { select: { id: true, name: true, unitsPerBox: true } },
+            },
+          },
         },
       },
     },
@@ -37,18 +42,24 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { debtId, amount, notes, type } = body
+    const { debtId, amount, notes, type, currency, usdAmount, cupAmount, boxes, exchangeRate } = body
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Monto requerido' }, { status: 400 })
     }
 
     const paymentType = VALID_TYPES.includes(type) ? type : 'partial'
+    const paymentCurrency = currency === 'CUP' ? 'CUP' : 'USD'
 
     if (paymentType === 'prepayment') {
       const payment = await prisma.debtPayment.create({
         data: {
           amount,
+          currency: paymentCurrency,
+          usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? amount : null),
+          cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? amount : null),
+          boxes: boxes ?? null,
+          exchangeRate: exchangeRate ?? null,
           notes: notes || 'Pago adelantado',
           type: 'prepayment',
         },
@@ -97,6 +108,11 @@ export async function POST(request: Request) {
         data: {
           debtId,
           amount,
+          currency: paymentCurrency,
+          usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? amount : null),
+          cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? amount : null),
+          boxes: boxes ?? null,
+          exchangeRate: exchangeRate ?? null,
           notes: notes || (paymentType === 'total' ? 'Pago total' : 'Pago parcial'),
           type: paymentType,
         },

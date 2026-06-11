@@ -10,6 +10,7 @@ import { LogoutAction } from '@/src/components/dashboard/LogoutAction'
 
 type IconName =
   | 'dashboard'
+  | 'pagos'
   | 'produccion'
   | 'almacen'
   | 'ventas'
@@ -28,6 +29,7 @@ const navSections: { title: string; items: Array<Omit<NavItem, 'icon' | 'module'
     title: 'Resumen',
     items: [
       { href: '/', label: 'Tablero', icon: 'dashboard', hint: 'Vista general', module: 'dashboard' },
+      { href: '/pagos', label: 'Pagos', icon: 'pagos', hint: 'Pagos a la fábrica', module: 'dashboard' },
     ],
   },
   {
