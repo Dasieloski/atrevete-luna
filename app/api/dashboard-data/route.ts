@@ -15,8 +15,8 @@ export async function GET(request: Request) {
   }
 
   const dateFilter = {
-    gte: new Date(from + 'T00:00:00'),
-    lte: new Date(to + 'T23:59:59'),
+    gte: new Date(from + 'T00:00:00Z'),
+    lte: new Date(to + 'T23:59:59Z'),
   }
 
   const [products, productions, transfers, sales, waste, payments] = await Promise.all([
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   ])
 
   // Get all debts up to the end date for running balance calculation
-  const endDate = new Date(to + 'T23:59:59')
+  const endDate = new Date(to + 'T23:59:59Z')
   const allDebts = await prisma.debt.findMany({
     where: {
       date: {

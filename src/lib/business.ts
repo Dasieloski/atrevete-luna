@@ -11,15 +11,13 @@ export interface InRangeOptions {
 
 export function inRange(date: string | Date, range: DateRange, opts: InRangeOptions = {}): boolean {
   if (!range.from && !range.to) return true
-  const ts = typeof date === 'string' ? new Date(date.includes('T') ? date : date + 'T12:00:00').getTime() : date.getTime()
-  if (isNaN(ts)) return false
-  if (range.from) {
-    const start = new Date(range.from + 'T00:00:00').getTime()
-    if (ts < start) return false
-  }
+  const dStr = typeof date === 'string'
+    ? (date.includes('T') ? date.split('T')[0] : date)
+    : date.toLocaleDateString('en-CA')
+  if (range.from && dStr < range.from) return false
   if (range.to) {
-    const end = new Date(range.to + (opts.inclusiveEnd === false ? 'T00:00:00' : 'T23:59:59')).getTime()
-    if (ts > end) return false
+    if (opts.inclusiveEnd === false && dStr > range.to) return false
+    if (opts.inclusiveEnd !== false && dStr > range.to) return false
   }
   return true
 }

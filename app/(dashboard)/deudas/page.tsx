@@ -164,14 +164,12 @@ export default function DeudasPage() {
   )
 
   const rows = useMemo(() => {
-    const fromTs = new Date(range.from + 'T00:00:00').getTime()
-    const toTs = new Date(range.to + 'T23:59:59').getTime()
-
     const debtRows = debts
       .filter(
-        (d) =>
-          new Date(d.date).getTime() >= fromTs &&
-          new Date(d.date).getTime() <= toTs
+        (d) => {
+          const dDate = d.date.split('T')[0]
+          return dDate >= range.from && dDate <= range.to
+        }
       )
       .map((d) => {
         const upb = d.transfer?.product?.unitsPerBox ?? d.sale?.product?.unitsPerBox ?? 100
@@ -274,7 +272,7 @@ export default function DeudasPage() {
     const enriched = sortedPayments.map((p, index) => {
       // All debts created on or before this payment's date
       const debtsUpToNow = debts.filter(
-        (d) => new Date(d.date).getTime() <= new Date(p.date).getTime()
+        (d) => d.date.split('T')[0] <= p.date.split('T')[0]
       )
       const totalDebtUpToNow = debtsUpToNow.reduce((s, d) => s + d.amount, 0)
 
@@ -299,13 +297,10 @@ export default function DeudasPage() {
     })
 
     // Filter by date range and sort descending for display
-    const fromTs = new Date(range.from + 'T00:00:00').getTime()
-    const toTs = new Date(range.to + 'T23:59:59').getTime()
-
     return enriched
       .filter((p) => {
-        const ts = new Date(p.date).getTime()
-        return ts >= fromTs && ts <= toTs
+        const pDate = p.date.split('T')[0]
+        return pDate >= range.from && pDate <= range.to
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [payments, debts, debtById, range])

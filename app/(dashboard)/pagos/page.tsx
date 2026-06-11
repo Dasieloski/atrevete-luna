@@ -93,17 +93,14 @@ export default function PagosPage() {
   const rows = useMemo(() => {
     const fromStr = range.from || '2000-01-01'
     const toStr = range.to || todayInputDate()
-    const fromTs = new Date(fromStr + 'T00:00:00').getTime()
-    const toTs = new Date(toStr + 'T23:59:59').getTime()
 
     // Agrupar recogidas (transfers factory -> main) por día
     const recogidasByDay = new Map<string, number>()
     const recogidasUSDByDay = new Map<string, number>()
     for (const t of transfers) {
       if (t.fromLocation !== 'factory' || t.toLocation !== 'main') continue
-      const d = new Date(t.date).toLocaleDateString('en-CA')
-      const ts = new Date(d + 'T00:00:00').getTime()
-      if (ts < fromTs || ts > toTs) continue
+      const d = t.date.split('T')[0]
+      if (d < fromStr || d > toStr) continue
       const prev = recogidasByDay.get(d) || 0
       const price = t.product?.priceWarehouse ?? FACTORY_PRICE
       const upb = t.product?.unitsPerBox || UNITS_PER_BOX
@@ -117,9 +114,8 @@ export default function PagosPage() {
     const payUSDByDay = new Map<string, number>()
     const payBoxesByDay = new Map<string, number>()
     for (const p of payments) {
-      const d = new Date(p.date).toLocaleDateString('en-CA')
-      const ts = new Date(d + 'T00:00:00').getTime()
-      if (ts < fromTs || ts > toTs) continue
+      const d = p.date.split('T')[0]
+      if (d < fromStr || d > toStr) continue
       if (p.currency === 'CUP' && p.cupAmount) {
         payCUPByDay.set(d, (payCUPByDay.get(d) || 0) + p.cupAmount)
       }
@@ -137,17 +133,11 @@ export default function PagosPage() {
     // Deuda acumulada (recogidas factory -> main) hasta cada día
     const allTransfers = transfers
       .filter((t) => t.fromLocation === 'factory' && t.toLocation === 'main')
-      .filter((t) => {
-        const ts = new Date(t.date).getTime()
-        return ts >= new Date('2000-01-01T00:00:00').getTime() && ts <= toTs
-      })
+      .filter((t) => t.date.split('T')[0] <= toStr)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     const allPayments = payments
-      .filter((p) => {
-        const ts = new Date(p.date).getTime()
-        return ts >= new Date('2000-01-01T00:00:00').getTime() && ts <= toTs
-      })
+      .filter((p) => p.date.split('T')[0] <= toStr)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     let runningDebt = 0
@@ -156,14 +146,14 @@ export default function PagosPage() {
     const paymentsByDay = new Map<string, number>()
 
     for (const tr of allTransfers) {
-      const d = new Date(tr.date).toLocaleDateString('en-CA')
+      const d = tr.date.split('T')[0]
       const price = tr.product?.priceWarehouse ?? FACTORY_PRICE
       runningDebt += tr.quantity * price
       debtByDay.set(d, runningDebt)
     }
 
     for (const p of allPayments) {
-      const d = new Date(p.date).toLocaleDateString('en-CA')
+      const d = p.date.split('T')[0]
       const usd = p.usdAmount ?? p.amount
       runningPayments += usd
       paymentsByDay.set(d, runningPayments)
