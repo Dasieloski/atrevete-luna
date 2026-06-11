@@ -42,7 +42,7 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
     get: () => {
       const d = new Date()
       d.setDate(d.getDate() - 1)
-      const s = d.toISOString().split('T')[0]
+      const s = d.toLocaleDateString('en-CA')
       return { from: s, to: s }
     },
   },
@@ -53,7 +53,7 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       const day = d.getDay()
       const diff = d.getDate() - day + (day === 0 ? -6 : 1)
       const monday = new Date(d.setDate(diff))
-      const s = monday.toISOString().split('T')[0]
+      const s = monday.toLocaleDateString('en-CA')
       const t = todayInputDate()
       return { from: s, to: t }
     },
@@ -68,8 +68,8 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       const sunday = new Date(monday)
       sunday.setDate(monday.getDate() + 6)
       return {
-        from: monday.toISOString().split('T')[0],
-        to: sunday.toISOString().split('T')[0],
+        from: monday.toLocaleDateString('en-CA'),
+        to: sunday.toLocaleDateString('en-CA'),
       }
     },
   },
@@ -82,12 +82,8 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
     get: () => {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
-      const start = new Date(d.getFullYear(), d.getMonth(), 1)
-        .toISOString()
-        .split('T')[0]
-      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-        .toISOString()
-        .split('T')[0]
+      const start = new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA')
+      const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString('en-CA')
       return { from: start, to: end }
     },
   },
@@ -96,7 +92,7 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
     get: () => {
       const d = new Date()
       const q = Math.floor(d.getMonth() / 3)
-      const start = new Date(d.getFullYear(), q * 3, 1).toISOString().split('T')[0]
+      const start = new Date(d.getFullYear(), q * 3, 1).toLocaleDateString('en-CA')
       const end = todayInputDate()
       return { from: start, to: end }
     },
@@ -108,8 +104,8 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       const q = Math.floor(d.getMonth() / 3) - 1
       const year = d.getFullYear() + (q < 0 ? -1 : 0)
       const actualQ = q < 0 ? 3 : q
-      const start = new Date(year, actualQ * 3, 1).toISOString().split('T')[0]
-      const end = new Date(year, actualQ * 3 + 3, 0).toISOString().split('T')[0]
+      const start = new Date(year, actualQ * 3, 1).toLocaleDateString('en-CA')
+      const end = new Date(year, actualQ * 3 + 3, 0).toLocaleDateString('en-CA')
       return { from: start, to: end }
     },
   },
@@ -118,7 +114,7 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
     get: () => {
       const d = new Date()
       const s = d.getMonth() < 6 ? 0 : 6
-      const start = new Date(d.getFullYear(), s, 1).toISOString().split('T')[0]
+      const start = new Date(d.getFullYear(), s, 1).toLocaleDateString('en-CA')
       const end = todayInputDate()
       return { from: start, to: end }
     },
@@ -129,8 +125,8 @@ const PRESETS: Record<PresetKey, { label: string; get: () => DateRange }> = {
       const d = new Date()
       const s = d.getMonth() < 6 ? 6 : 0
       const year = d.getMonth() < 6 ? d.getFullYear() - 1 : d.getFullYear()
-      const start = new Date(year, s, 1).toISOString().split('T')[0]
-      const end = new Date(year, s + 6, 0).toISOString().split('T')[0]
+      const start = new Date(year, s, 1).toLocaleDateString('en-CA')
+      const end = new Date(year, s + 6, 0).toLocaleDateString('en-CA')
       return { from: start, to: end }
     },
   },

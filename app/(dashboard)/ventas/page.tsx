@@ -13,7 +13,7 @@ import { Input } from '@/src/components/ui/Input'
 import { Tabs } from '@/src/components/ui/Tabs'
 import { Table, THead, TBody, TR, TH, TD } from '@/src/components/ui/Table'
 import { cn } from '@/src/lib/utils'
-import { formatDate, formatNumber, formatCurrency } from '@/src/lib/format'
+import { formatDate, formatNumber, formatCurrency, todayInputDate } from '@/src/lib/format'
 import type { DateRange } from '@/src/lib/business'
 import { inRange } from '@/src/lib/business'
 import { ExportDropdown } from '@/src/components/ExportDropdown'
@@ -72,7 +72,7 @@ export default function DistribucionPage() {
     customerId: '',
     boxes: 1,
     price: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
     notes: '',
   })
 
@@ -158,7 +158,7 @@ export default function DistribucionPage() {
       customerId: '',
       boxes: 1,
       price: firstProductId ? getDefaultPrice(firstProductId) : 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
       notes: '',
     })
     setShowModal(true)
@@ -171,7 +171,7 @@ export default function DistribucionPage() {
       customerId: '',
       boxes: 1,
       price: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
       notes: '',
     })
   }

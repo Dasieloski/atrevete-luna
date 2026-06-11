@@ -11,7 +11,7 @@ export interface InRangeOptions {
 
 export function inRange(date: string | Date, range: DateRange, opts: InRangeOptions = {}): boolean {
   if (!range.from && !range.to) return true
-  const ts = typeof date === 'string' ? new Date(date).getTime() : date.getTime()
+  const ts = typeof date === 'string' ? new Date(date.includes('T') ? date : date + 'T12:00:00').getTime() : date.getTime()
   if (isNaN(ts)) return false
   if (range.from) {
     const start = new Date(range.from + 'T00:00:00').getTime()
@@ -36,12 +36,12 @@ export function percentChange(current: number, previous: number): number | null 
 
 export function previousRange(range: DateRange): DateRange {
   const days = daysBetween(range.from, range.to)
-  const toTs = new Date(range.to + 'T00:00:00').getTime()
+  const toTs = new Date(range.to + 'T12:00:00').getTime()
   const prevTo = new Date(toTs - 1000 * 60 * 60 * 24)
   const prevFrom = new Date(prevTo.getTime() - (days - 1) * 1000 * 60 * 60 * 24)
   return {
-    from: prevFrom.toISOString().split('T')[0],
-    to: prevTo.toISOString().split('T')[0],
+    from: prevFrom.toLocaleDateString('en-CA'),
+    to: prevTo.toLocaleDateString('en-CA'),
   }
 }
 

@@ -67,7 +67,7 @@ export async function POST(request: Request) {
           cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? totalApplied : null),
           boxes: boxes ?? null,
           exchangeRate: exchangeRate ?? null,
-          date: new Date(date),
+          date: new Date(date + 'T00:00:00'),
           notes: notes || 'Pago a cuenta',
           type: 'account',
         },

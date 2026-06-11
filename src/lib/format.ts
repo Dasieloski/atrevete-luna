@@ -47,18 +47,22 @@ export function formatBoxesAndUnits(units: number, unitsPerBox: number): string 
 
 export function toInputDate(value: Date | string | null | undefined): string {
   if (!value) return ''
-  const d = typeof value === 'string' ? new Date(value) : value
-  if (isNaN(d.getTime())) return ''
-  return d.toISOString().split('T')[0]
+  if (typeof value === 'string') {
+    // Extract YYYY-MM-DD directly from ISO strings or plain date strings
+    const m = value.match(/^(\d{4}-\d{2}-\d{2})/)
+    return m ? m[1] : ''
+  }
+  if (isNaN(value.getTime())) return ''
+  return value.toLocaleDateString('en-CA')
 }
 
 export function todayInputDate(): string {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA')
 }
 
 export function monthStartInputDate(): string {
   const d = new Date()
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
+  return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA')
 }
 
 export function yearStartInputDate(): string {
@@ -68,8 +72,8 @@ export function yearStartInputDate(): string {
 
 export function daysBetween(from: string, to: string): number {
   if (!from || !to) return 0
-  const a = new Date(from + 'T00:00:00').getTime()
-  const b = new Date(to + 'T23:59:59').getTime()
+  const a = new Date(from + 'T12:00:00').getTime()
+  const b = new Date(to + 'T12:00:00').getTime()
   const diff = Math.max(0, b - a)
   return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1)
 }

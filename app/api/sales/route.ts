@@ -43,7 +43,7 @@ export async function POST(request: Request) {
           customer: { connect: { id: data.customerId } },
           quantity,
           total,
-          date: new Date(data.date),
+          date: new Date(data.date + 'T00:00:00'),
           seller: data.seller || 'alex',
           notes: data.notes || null,
         },

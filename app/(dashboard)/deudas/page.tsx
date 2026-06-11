@@ -103,17 +103,17 @@ export default function DeudasPage() {
     usdAmount: 0,
     cupAmount: 0,
     exchangeRate: 120,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
     notes: '',
   })
   const [prepaymentForm, setPrepaymentForm] = useState({
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
     notes: '',
   })
   const [manualForm, setManualForm] = useState({
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: todayInputDate(),
     notes: '',
   })
   const [activeTab, setActiveTab] = useState<'debts' | 'history'>('debts')
@@ -357,7 +357,7 @@ export default function DeudasPage() {
     })
     setPrepaymentForm({
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
       notes: '',
     })
     setModal(null)
@@ -378,7 +378,7 @@ export default function DeudasPage() {
     })
     setManualForm({
       amount: 0,
-      date: new Date().toISOString().split('T')[0],
+      date: todayInputDate(),
       notes: '',
     })
     setModal(null)

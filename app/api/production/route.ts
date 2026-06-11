@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         unitsPerBox: data.unitsPerBox,
         quantity,
         status: data.status || null,
-        date: new Date(data.date),
+        date: new Date(data.date + 'T00:00:00'),
         notes: data.notes || null,
       },
     })
@@ -96,7 +96,7 @@ export async function PUT(request: Request) {
         unitsPerBox: data.unitsPerBox,
         quantity,
         status: data.status || null,
-        date: data.date ? new Date(data.date) : undefined,
+        date: data.date ? new Date(data.date + 'T00:00:00') : undefined,
         notes: data.notes,
         editedBy: data.editedBy || 'admin',
         editedAt: new Date(),

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         fromLocation: data.fromLocation,
         toLocation: data.toLocation,
         quantity,
-        date: new Date(data.date),
+        date: new Date(data.date + 'T00:00:00'),
         notes: data.notes || null,
       }
     })
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       data: {
         type: 'transfer',
         amount: debtAmount,
-        date: new Date(data.date),
+        date: new Date(data.date + 'T00:00:00'),
         notes: `Recogida — ${product.name} — ${boxes} caja(s) de ${data.fromLocation} a ${data.toLocation}`,
         transferId: transfer.id,
       },
@@ -142,7 +142,7 @@ export async function PUT(request: Request) {
         fromLocation: data.fromLocation || oldTransfer.fromLocation,
         toLocation: data.toLocation || oldTransfer.toLocation,
         quantity,
-        date: data.date ? new Date(data.date) : oldTransfer.date,
+        date: data.date ? new Date(data.date + 'T00:00:00') : oldTransfer.date,
         notes: data.notes !== undefined ? data.notes : oldTransfer.notes,
       }
     })
