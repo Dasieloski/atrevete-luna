@@ -301,28 +301,32 @@ export default function DashboardClient() {
   // Running debt balance per day
   const dailyDebtBalance = useMemo(() => {
     if (!data) return {}
-    
+
     // Get all unique dates sorted
     const dates = Object.keys(dailyData).sort()
     if (dates.length === 0) return {}
 
     // Calculate cumulative debt created and paid per day
     const result: Record<string, { debtCreated: number; debtPaid: number; remaining: number }> = {}
-    
+
     let cumulativeDebt = 0
     let cumulativePaid = 0
 
     for (const date of dates) {
       const day = dailyData[date]
-      
-      // Debt created = factory value (production at warehouse price)
-      cumulativeDebt += day.factoryValue
+
+      // Debt created = value of transfers from factory to main (recogidas)
+      for (const [prodId, qty] of Object.entries(day.transfers)) {
+        const prod = data.products.find((p) => p.id === prodId)
+        const price = prod?.priceWarehouse || 0
+        cumulativeDebt += qty * price
+      }
       cumulativePaid += day.payments
-      
+
       result[date] = {
         debtCreated: cumulativeDebt,
         debtPaid: cumulativePaid,
-        remaining: +(cumulativeDebt - cumulativePaid).toFixed(2),
+        remaining: Math.max(0, +(cumulativeDebt - cumulativePaid).toFixed(2)),
       }
     }
 
@@ -341,6 +345,7 @@ export default function DashboardClient() {
   }, [allTimeData])
 
   // Running debt balance for every date that has data
+  // Uses ONLY transfers factory→main as debt (same as /pagos page)
   const allTimeDebtBalance = useMemo(() => {
     if (!allTimeData) return {}
     const dates = Object.keys(allTimeDailyData).sort()
@@ -350,9 +355,14 @@ export default function DashboardClient() {
     let cumulativePaid = 0
     for (const date of dates) {
       const day = allTimeDailyData[date]
-      cumulativeDebt += day.factoryValue
+      // Debt created = value of transfers from factory to main
+      for (const [prodId, qty] of Object.entries(day.transfers)) {
+        const prod = allTimeData.products.find((p) => p.id === prodId)
+        const price = prod?.priceWarehouse || 0
+        cumulativeDebt += qty * price
+      }
       cumulativePaid += day.payments
-      result[date] = +(cumulativeDebt - cumulativePaid).toFixed(2)
+      result[date] = Math.max(0, +(cumulativeDebt - cumulativePaid).toFixed(2))
     }
     return result
   }, [allTimeDailyData, allTimeData])

@@ -56,7 +56,7 @@ export function DailyResumenTable({
   totalPaid,
 }: DailyResumenTableProps) {
   const [search, setSearch] = useState('')
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('asc')
 
   const displayRows = useMemo(() => {
     const filtered = !search
