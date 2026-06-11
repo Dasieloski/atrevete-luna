@@ -723,12 +723,13 @@ export default function DashboardClient() {
                 </div>
               </div>
               <p className="mb-4 text-xs text-muted">
-                Cada celda muestra la producción del día por producto.
+                Cada celda muestra, por producto: <span className="font-mono font-semibold text-blue-700">P</span>roducido, <span className="font-mono font-semibold text-emerald-700">R</span>ecogido, <span className="font-mono font-semibold text-amber-700">V</span>endido. La esquina superior derecha muestra el pendiente con la fábrica.
               </p>
               <ProductionCalendar
                 products={allTimeData?.products ?? []}
                 dailyData={calendarDailyData}
                 currentMonth={calendarMonth}
+                remainingByDate={allTimeDebtBalance}
                 onCellClick={(date) => setSelectedDate(date)}
               />
             </div>

@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { formatCurrency } from '@/src/lib/format'
-import { Package, ShoppingCart, Wallet } from 'lucide-react'
+import { formatCurrency, formatNumber } from '@/src/lib/format'
+import { Package, ShoppingCart, Wallet, Factory } from 'lucide-react'
 import { cn } from '@/src/lib/utils'
 
 interface ProductInfo {
@@ -26,13 +26,26 @@ interface ProductionCalendarProps {
   products: ProductInfo[]
   dailyData: Record<string, DayData>
   currentMonth: Date
+  remainingByDate?: Record<string, number>
   onCellClick?: (date: string) => void
 }
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const COLORS = ['#3E6AE1', '#12B76A', '#F79009']
+const PROD_COLORS = [
+  { text: 'text-blue-700', dot: 'bg-blue-500', bg: 'bg-blue-soft/20' },
+  { text: 'text-emerald-700', dot: 'bg-emerald-500', bg: 'bg-emerald-50' },
+  { text: 'text-amber-700', dot: 'bg-amber-500', bg: 'bg-amber-50' },
+  { text: 'text-violet-700', dot: 'bg-violet-500', bg: 'bg-violet-50' },
+  { text: 'text-rose-700', dot: 'bg-rose-500', bg: 'bg-rose-50' },
+]
 
-export function ProductionCalendar({ products, dailyData, currentMonth, onCellClick }: ProductionCalendarProps) {
+export function ProductionCalendar({
+  products,
+  dailyData,
+  currentMonth,
+  remainingByDate,
+  onCellClick,
+}: ProductionCalendarProps) {
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
@@ -74,31 +87,20 @@ export function ProductionCalendar({ products, dailyData, currentMonth, onCellCl
     return result
   }, [calendarDays])
 
-  // Max boxes for any single product on any day (for bar scaling)
-  const maxProdBoxes = useMemo(() => {
-    let max = 0
-    for (const day of Object.values(dailyData)) {
-      for (const prod of products) {
-        const units = day.production[prod.id] || 0
-        const boxes = prod.unitsPerBox > 0 ? Math.floor(units / prod.unitsPerBox) : units
-        if (boxes > max) max = boxes
-      }
-    }
-    return max
-  }, [dailyData, products])
-
   return (
     <section className="ts-card overflow-hidden">
+      {/* Header: Day names */}
       <div className="grid grid-cols-7">
         {DAYS.map((day) => (
           <div
             key={day}
-            className="border-b border-hairline bg-ash/50 px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-muted"
+            className="border-b border-hairline bg-ash/50 px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-steel"
           >
             {day}
           </div>
         ))}
       </div>
+
       <div className="grid grid-cols-7">
         {weeks.map((week, wi) =>
           week.map((cell, ci) => {
@@ -106,12 +108,13 @@ export function ProductionCalendar({ products, dailyData, currentMonth, onCellCl
               return (
                 <div
                   key={`${wi}-${ci}`}
-                  className="min-h-[120px] border-b border-r border-hairline/40 bg-ash/20 p-1.5 last:border-r-0"
+                  className="min-h-[140px] border-b border-r border-hairline/40 bg-ash/20 p-1.5 last:border-r-0"
                 />
               )
             }
 
             const dayData = dailyData[cell.date]
+            const remaining = remainingByDate?.[cell.date] ?? 0
             const hasAnyData = dayData && (
               Object.keys(dayData.production).length > 0 ||
               Object.keys(dayData.transfers).length > 0 ||
@@ -119,103 +122,115 @@ export function ProductionCalendar({ products, dailyData, currentMonth, onCellCl
               dayData.payments > 0
             )
 
-            // Calculate totals for the day
-            let totalRecogido = 0
-            let totalVendido = 0
-            if (dayData) {
-              for (const [prodId, units] of Object.entries(dayData.transfers)) {
-                const prod = products.find((p) => p.id === prodId)
-                const upb = prod?.unitsPerBox ?? 1
-                totalRecogido += upb > 0 ? Math.floor(units / upb) : units
-              }
-              for (const [prodId, saleData] of Object.entries(dayData.sales)) {
-                const prod = products.find((p) => p.id === prodId)
-                const upb = prod?.unitsPerBox ?? 1
-                totalVendido += upb > 0 ? Math.floor(saleData.quantity / upb) : saleData.quantity
-              }
-            }
-
             return (
               <button
                 key={cell.date}
                 onClick={() => cell.date && onCellClick?.(cell.date)}
                 className={cn(
-                  'min-h-[120px] w-full border-b border-r border-hairline/40 p-1.5 text-left transition-colors last:border-r-0',
+                  'min-h-[140px] w-full border-b border-r border-hairline/40 p-1.5 text-left transition-colors last:border-r-0',
                   cell.isToday
                     ? 'bg-primary/5 ring-1 ring-inset ring-primary/30'
                     : 'bg-canvas hover:bg-ash/30'
                 )}
               >
-                <div className={cn('mb-1 text-xs font-medium', cell.isToday ? 'text-primary' : 'text-muted')}>
-                  {cell.day}
+                {/* Day number */}
+                <div className={cn('mb-1 flex items-center justify-between', cell.isToday ? 'text-primary' : 'text-steel')}>
+                  <span className="text-xs font-semibold">{cell.day}</span>
+                  {remaining > 0 && (
+                    <span className="font-mono text-[9px] font-medium text-error">
+                      {formatCurrency(remaining)}
+                    </span>
+                  )}
                 </div>
 
                 {hasAnyData && dayData && (
-                  <div className="space-y-1">
-                    {/* Production bars per product */}
+                  <div className="space-y-1.5">
+                    {/* Per product: Producido / Recogido / Vendido */}
                     {products.map((prod, idx) => {
-                      const units = dayData.production[prod.id] || 0
-                      if (units === 0) return null
-                      const boxes = prod.unitsPerBox > 0 ? Math.floor(units / prod.unitsPerBox) : units
-                      const value = units * prod.priceWarehouse
-                      const pct = maxProdBoxes > 0 ? Math.max((boxes / maxProdBoxes) * 100, 4) : 4
-                      const color = COLORS[idx % COLORS.length]
+                      const prodUnits = dayData.production[prod.id] || 0
+                      const transUnits = dayData.transfers[prod.id] || 0
+                      const saleUnits = dayData.sales[prod.id]?.quantity || 0
+                      const upb = prod.unitsPerBox || 1
+                      const prodBoxes = upb > 0 ? Math.floor(prodUnits / upb) : prodUnits
+                      const transBoxes = upb > 0 ? Math.floor(transUnits / upb) : transUnits
+                      const saleBoxes = upb > 0 ? Math.floor(saleUnits / upb) : saleUnits
+
+                      if (prodBoxes === 0 && transBoxes === 0 && saleBoxes === 0) return null
+
+                      const color = PROD_COLORS[idx % PROD_COLORS.length]
+                      const shortName = prod.name.split(' ')[0]
 
                       return (
-                        <div key={prod.id} className="flex flex-col gap-0.5">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="truncate text-[10px] font-medium leading-tight text-body-strong">
-                              {prod.name.split(' ')[0]}
-                            </span>
-                            <span className="shrink-0 font-mono text-[10px] leading-tight text-ink">
-                              {boxes} cjs
-                            </span>
+                        <div key={prod.id} className="rounded border border-hairline/40 bg-canvas/60 p-1">
+                          <div className={cn('mb-0.5 flex items-center gap-1 text-[10px] font-semibold', color.text)}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', color.dot)} />
+                            <span className="truncate">{shortName}</span>
                           </div>
-                          <div className="h-1 w-full overflow-hidden rounded-full bg-ash">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${pct}%`, backgroundColor: color }}
-                            />
+                          <div className="grid grid-cols-3 gap-0.5 text-[9px]">
+                            {prodBoxes > 0 && (
+                              <div className="flex flex-col items-center">
+                                <span className="font-mono font-semibold tabular-nums text-blue-700">
+                                  {formatNumber(prodBoxes)}
+                                </span>
+                                <span className="text-[8px] uppercase tracking-wide text-muted-soft">P</span>
+                              </div>
+                            )}
+                            {transBoxes > 0 && (
+                              <div className="flex flex-col items-center">
+                                <span className="font-mono font-semibold tabular-nums text-emerald-700">
+                                  {formatNumber(transBoxes)}
+                                </span>
+                                <span className="text-[8px] uppercase tracking-wide text-muted-soft">R</span>
+                              </div>
+                            )}
+                            {saleBoxes > 0 && (
+                              <div className="flex flex-col items-center">
+                                <span className="font-mono font-semibold tabular-nums text-amber-700">
+                                  {formatNumber(saleBoxes)}
+                                </span>
+                                <span className="text-[8px] uppercase tracking-wide text-muted-soft">V</span>
+                              </div>
+                            )}
                           </div>
-                          {value > 0 && (
-                            <span className="font-mono text-[9px] text-muted">
-                              {formatCurrency(value)}
-                            </span>
-                          )}
                         </div>
                       )
                     })}
 
-                    {/* Day summary footer */}
-                    <div className="mt-1 space-y-0.5 border-t border-hairline/30 pt-1">
-                      {totalRecogido > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-muted">
-                          <Package className="h-3 w-3 shrink-0 text-ink" />
-                          <span className="font-mono">{totalRecogido} cjs</span>
-                          <span className="text-muted-soft">recogido</span>
-                        </div>
-                      )}
-                      {totalVendido > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-primary">
-                          <ShoppingCart className="h-3 w-3 shrink-0" />
-                          <span className="font-mono">{totalVendido} cjs</span>
-                          <span className="text-primary/70">vendido</span>
-                        </div>
-                      )}
-                      {dayData.payments > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-success">
-                          <Wallet className="h-3 w-3 shrink-0" />
-                          <span className="font-mono">{formatCurrency(dayData.payments)}</span>
-                          <span className="text-success/70">pagado</span>
-                        </div>
-                      )}
-                    </div>
+                    {/* Day summary footer: payments */}
+                    {dayData.payments > 0 && (
+                      <div className="flex items-center gap-1 border-t border-hairline/40 pt-1 text-[10px] text-success">
+                        <Wallet className="h-3 w-3 shrink-0" />
+                        <span className="font-mono font-semibold">{formatCurrency(dayData.payments)}</span>
+                        <span className="text-success/70">pagado</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </button>
             )
           })
         )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 border-t border-hairline bg-surface/40 px-4 py-2 text-[10px] text-muted">
+        <span className="font-semibold uppercase tracking-wider text-steel">Leyenda:</span>
+        <span className="flex items-center gap-1">
+          <span className="font-mono font-semibold text-blue-700">P</span>
+          <span>Producido</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="font-mono font-semibold text-emerald-700">R</span>
+          <span>Recogido</span>
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="font-mono font-semibold text-amber-700">V</span>
+          <span>Vendido</span>
+        </span>
+        <span className="ml-auto flex items-center gap-1">
+          <span className="font-mono text-error">$</span>
+          <span>Esquina superior derecha = pendiente con fábrica</span>
+        </span>
       </div>
     </section>
   )
