@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Download, FileText, FileSpreadsheet, File } from 'lucide-react'
-import { exportCSV, exportExcel, exportPDF } from '@/lib/export'
+import { exportCSV, exportExcel, exportPDF, type ExportRow } from '@/lib/export'
 
 interface ExportDropdownProps {
   rows: Record<string, string | number | null | undefined>[]
@@ -10,6 +10,8 @@ interface ExportDropdownProps {
   filename: string
   pdfTitle: string
   pdfSubtitle?: string
+  totalsRow?: ExportRow
+  columnAligns?: ('left' | 'center' | 'right')[]
   disabled?: boolean
 }
 
@@ -19,6 +21,8 @@ export function ExportDropdown({
   filename,
   pdfTitle,
   pdfSubtitle,
+  totalsRow,
+  columnAligns,
   disabled = false,
 }: ExportDropdownProps) {
   const [open, setOpen] = useState(false)
@@ -36,8 +40,21 @@ export function ExportDropdown({
   function handleExport(format: 'csv' | 'excel' | 'pdf') {
     if (rows.length === 0) return
     if (format === 'csv') exportCSV(filename, rows, headers)
-    else if (format === 'excel') exportExcel(filename, rows, headers)
-    else exportPDF(filename, rows, headers, pdfTitle, pdfSubtitle)
+    else if (format === 'excel') exportExcel(filename, rows, headers, totalsRow)
+    else {
+      const columnStyles: Record<number, { halign: 'left' | 'center' | 'right' }> = {}
+      if (columnAligns) {
+        columnAligns.forEach((align, i) => {
+          columnStyles[i] = { halign: align }
+        })
+      }
+      exportPDF(filename, rows, headers, {
+        title: pdfTitle,
+        subtitle: pdfSubtitle,
+        columnStyles,
+        totalsRow,
+      })
+    }
     setOpen(false)
   }
 

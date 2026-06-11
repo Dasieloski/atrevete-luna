@@ -221,7 +221,7 @@ export default function ProduccionPage() {
     const filename = `produccion_${range.from}_${range.to}`
     if (format === 'csv') exportCSV(filename, rows, headers)
     else if (format === 'excel') exportExcel(filename, rows, headers)
-    else exportPDF(filename, rows, headers, 'Historial de Producción', `Período: ${range.from} a ${range.to}`)
+    else exportPDF(filename, rows, headers, { title: 'Historial de Producción', subtitle: `Período: ${range.from} a ${range.to}` })
     setExportOpen(false)
   }
 

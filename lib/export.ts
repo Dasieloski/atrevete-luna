@@ -1,6 +1,8 @@
 import { utils, writeFile } from 'xlsx'
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import { applyPlugin, autoTable } from 'jspdf-autotable'
+
+applyPlugin(jsPDF as any)
 
 export interface ExportRow {
   [key: string]: string | number | null | undefined
@@ -32,51 +34,97 @@ export function exportCSV(filename: string, rows: ExportRow[], headers: string[]
   URL.revokeObjectURL(link.href)
 }
 
-export function exportExcel(filename: string, rows: ExportRow[], headers: string[]) {
-  const ws = utils.json_to_sheet(rows, { header: headers })
+export function exportExcel(
+  filename: string,
+  rows: ExportRow[],
+  headers: string[],
+  totalsRow?: ExportRow
+) {
+  const allRows = totalsRow ? [...rows, totalsRow] : rows
+  const ws = utils.json_to_sheet(allRows, { header: headers })
+
+  const colWidths = headers.map((h) => {
+    const maxLen = Math.max(
+      h.length,
+      ...allRows.map((r) => String(r[h] ?? '').length)
+    )
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) }
+  })
+  ws['!cols'] = colWidths
+
+  if (totalsRow) {
+    const range = utils.decode_range(ws['!ref'] || 'A1')
+    const lastRow = range.e.r
+    for (let c = 0; c < headers.length; c++) {
+      const cellRef = utils.encode_cell({ r: lastRow, c })
+      const cell = ws[cellRef]
+      if (cell) {
+        cell.s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '1E293B' } },
+          alignment: { horizontal: 'right' },
+        }
+      }
+    }
+  }
+
   const wb = utils.book_new()
   utils.book_append_sheet(wb, ws, 'Datos')
   writeFile(wb, `${filename}.xlsx`)
+}
+
+export interface PDFOptions {
+  title: string
+  subtitle?: string
+  columnStyles?: Record<number, { halign?: 'left' | 'center' | 'right' }>
+  totalsRow?: ExportRow
 }
 
 export function exportPDF(
   filename: string,
   rows: ExportRow[],
   headers: string[],
-  title: string,
-  subtitle?: string
+  options: PDFOptions
 ) {
+  const { title, subtitle, columnStyles, totalsRow } = options
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
-  const pageWidth = doc.internal.pageSize.getWidth()
 
-  // Title
   doc.setFontSize(16)
-  doc.setTextColor(40, 40, 40)
+  doc.setTextColor(20, 20, 20)
   doc.text(title, 40, 40)
+
+  let cursorY = subtitle ? 58 : 48
 
   if (subtitle) {
     doc.setFontSize(10)
     doc.setTextColor(100, 100, 100)
-    doc.text(subtitle, 40, 58)
+    doc.text(subtitle, 40, cursorY)
+    cursorY += 14
   }
 
-  // Generated at
   doc.setFontSize(9)
-  doc.setTextColor(120, 120, 120)
-  doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 40, subtitle ? 72 : 58)
+  doc.setTextColor(140, 140, 140)
+  doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 40, cursorY)
+  cursorY += 18
 
   const body = rows.map((row) => headers.map((h) => String(row[h] ?? '—')))
+  const foot = totalsRow
+    ? [headers.map((h) => String(totalsRow[h] ?? ''))]
+    : undefined
 
-  ;(doc as any).autoTable({
+  autoTable(doc as any, {
     head: [headers],
     body,
-    startY: subtitle ? 82 : 68,
+    foot,
+    startY: cursorY,
     margin: { left: 40, right: 40 },
     styles: {
       fontSize: 9,
-      cellPadding: 6,
+      cellPadding: 5,
       overflow: 'linebreak',
       valign: 'middle',
+      lineColor: [220, 220, 220],
+      lineWidth: 0.5,
     },
     headStyles: {
       fillColor: [59, 130, 246],
@@ -84,13 +132,17 @@ export function exportPDF(
       fontStyle: 'bold',
       halign: 'center',
     },
+    footStyles: {
+      fillColor: [30, 41, 59],
+      textColor: 255,
+      fontStyle: 'bold',
+      halign: 'right',
+    },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
-    columnStyles: {
-      0: { halign: 'center' },
-    },
-  })
+    columnStyles: columnStyles ?? {},
+  } as any)
 
   doc.save(`${filename}.pdf`)
 }

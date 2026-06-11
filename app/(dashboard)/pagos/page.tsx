@@ -233,15 +233,26 @@ export default function PagosPage() {
   const exportRows = useMemo(() => {
     return rows.map((r) => ({
       Fecha: formatDate(r.date),
-      'Recogidas Cajas': r.recogidasCajas,
-      'Recogidas USD': r.recogidasUSD,
-      'Pagos CUP': r.pagosCUP || '',
-      'Pagos USD': r.pagosUSD,
-      'Pagos Cajas': r.pagosCajas,
-      'Pendiente USD': r.pendienteUSD,
-      'Pendiente Cajas': r.pendienteCajas,
+      'Recogidas Cajas': formatNumber(r.recogidasCajas),
+      'Recogidas USD': formatCurrency(r.recogidasUSD),
+      'Pagos CUP': r.pagosCUP > 0 ? formatNumber(r.pagosCUP) : '—',
+      'Pagos USD': formatCurrency(r.pagosUSD),
+      'Pagos Cajas': formatNumber(r.pagosCajas),
+      'Pendiente USD': formatCurrency(r.pendienteUSD),
+      'Pendiente Cajas': formatNumber(r.pendienteCajas),
     }))
   }, [rows])
+
+  const exportTotals = useMemo(() => ({
+    Fecha: 'TOTAL',
+    'Recogidas Cajas': formatNumber(totals.recogidasCajas),
+    'Recogidas USD': formatCurrency(totals.recogidasUSD),
+    'Pagos CUP': totals.pagosCUP > 0 ? formatNumber(totals.pagosCUP) : '—',
+    'Pagos USD': formatCurrency(totals.pagosUSD),
+    'Pagos Cajas': formatNumber(totals.pagosCajas),
+    'Pendiente USD': formatCurrency(totals.pendienteUSD),
+    'Pendiente Cajas': formatNumber(totals.pendienteCajas),
+  }), [totals])
 
   return (
     <div className="space-y-6">
@@ -319,6 +330,8 @@ export default function PagosPage() {
               filename={`pagos_${range.from}_${range.to}`}
               pdfTitle="Pagos a la Fábrica"
               pdfSubtitle={`Período: ${range.from} a ${range.to}`}
+              totalsRow={exportTotals}
+              columnAligns={['center', 'right', 'right', 'right', 'right', 'right', 'right', 'right']}
               disabled={rows.length === 0}
             />
           </div>
