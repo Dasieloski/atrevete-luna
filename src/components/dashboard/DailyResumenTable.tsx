@@ -2,26 +2,20 @@
 
 import { useMemo, useState } from 'react'
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  flexRender,
-  createColumnHelper,
-  SortingState,
-} from '@tanstack/react-table'
-import {
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-  ChevronLeft,
-  ChevronRight,
+  Receipt,
   Search,
-  CreditCard,
-  Wallet,
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Download,
+  FileSpreadsheet,
+  File,
 } from 'lucide-react'
-import { formatDate, formatCurrency, formatNumber } from '@/src/lib/format'
+import { ExportDropdown } from '@/src/components/ExportDropdown'
+import { EmptyState } from '@/src/components/EmptyState'
+import { formatDate, formatNumber, formatCurrency } from '@/src/lib/format'
 import { cn } from '@/src/lib/utils'
 
 export interface ProductInfo {
@@ -55,225 +49,104 @@ export interface DailyResumenTableProps {
   totalPaid: number
 }
 
-const PROD_COLORS = [
-  { dot: 'bg-blue-500', text: 'text-blue-700' },
-  { dot: 'bg-emerald-500', text: 'text-emerald-700' },
-  { dot: 'bg-amber-500', text: 'text-amber-700' },
-]
-
-function MiniList({
-  products,
-  items,
-  showValue = false,
-}: {
-  products: ProductInfo[]
-  items: Record<string, ProductBreakdown>
-  showValue?: boolean
-}) {
-  const hasAny = products.some((p) => (items[p.id]?.boxes ?? 0) > 0)
-  if (!hasAny) return <span className="text-sm text-muted-soft">—</span>
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {products.map((prod, idx) => {
-        const b = items[prod.id]
-        if (!b || b.boxes === 0) return null
-        const color = PROD_COLORS[idx % PROD_COLORS.length]
-        return (
-          <div key={prod.id} className="flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 shrink-0 rounded-full', color.dot)} />
-            <span className={cn('text-[11px] font-medium', color.text)}>
-              {prod.name.split(' ')[0]}
-            </span>
-            <span className="ml-auto text-sm font-semibold tabular-nums text-ink">
-              {formatNumber(b.boxes)} <span className="text-[10px] font-normal text-muted">cjs</span>
-            </span>
-          </div>
-        )
-      })}
-      {showValue && (
-        <span className="mt-0.5 text-right text-[10px] tabular-nums text-muted">
-          {formatCurrency(
-            Object.values(items).reduce((s, v) => s + v.value, 0)
-          )} precio fábrica
-        </span>
-      )}
-    </div>
-  )
-}
-
-function MiniStockList({
-  products,
-  stock,
-}: {
-  products: ProductInfo[]
-  stock: Record<string, number>
-}) {
-  const hasAny = products.some((p) => (stock[p.id] ?? 0) > 0)
-  if (!hasAny) return <span className="text-sm text-muted-soft">—</span>
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {products.map((prod, idx) => {
-        const boxes = stock[prod.id] ?? 0
-        if (boxes === 0) return null
-        const color = PROD_COLORS[idx % PROD_COLORS.length]
-        return (
-          <div key={prod.id} className="flex items-center gap-1.5">
-            <span className={cn('h-2 w-2 shrink-0 rounded-full', color.dot)} />
-            <span className={cn('text-[11px] font-medium', color.text)}>
-              {prod.name.split(' ')[0]}
-            </span>
-            <span className="ml-auto text-sm font-semibold tabular-nums text-ink">
-              {formatNumber(boxes)} <span className="text-[10px] font-normal text-muted">cjs</span>
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 export function DailyResumenTable({
   rows,
   products,
   totalPending,
   totalPaid,
 }: DailyResumenTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: 'date', desc: false }])
-  const [globalFilter, setGlobalFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
-  const columnHelper = createColumnHelper<ResumenRow>()
-
-  const columns = useMemo(() => {
-    return [
-      columnHelper.accessor('date', {
-        header: 'Fecha',
-        cell: (info) => (
-          <span className="whitespace-nowrap text-sm font-medium text-ink">
-            {formatDate(info.getValue())}
-          </span>
-        ),
-        sortingFn: 'text',
-      }),
-      columnHelper.accessor(
-        (row) => Object.values(row.products).reduce((s, v) => s + v.boxes, 0),
-        {
-          id: 'produced',
-          header: 'Producido por fábrica',
-          cell: (info) => {
-            const row = info.row.original
-            return <MiniList products={products} items={row.products} showValue />
-          },
-          sortingFn: 'basic',
-        }
-      ),
-      columnHelper.accessor(
-        (row) => Object.values(row.transfers).reduce((s, v) => s + v.boxes, 0),
-        {
-          id: 'recogido',
-          header: 'Recogido',
-          cell: (info) => {
-            const row = info.row.original
-            return <MiniList products={products} items={row.transfers} showValue />
-          },
-          sortingFn: 'basic',
-        }
-      ),
-      columnHelper.accessor(
-        (row) => Object.values(row.sales).reduce((s, v) => s + v.boxes, 0),
-        {
-          id: 'vendido',
-          header: 'Vendido',
-          cell: (info) => {
-            const row = info.row.original
-            return <MiniList products={products} items={row.sales} showValue />
-          },
-          sortingFn: 'basic',
-        }
-      ),
-      columnHelper.accessor(
-        (row) => Object.values(row.factoryStock).reduce((s, v) => s + v, 0),
-        {
-          id: 'porRecoger',
-          header: 'Por recoger',
-          cell: (info) => {
-            const row = info.row.original
-            return <MiniStockList products={products} stock={row.factoryStock} />
-          },
-          sortingFn: 'basic',
-        }
-      ),
-      columnHelper.accessor(
-        (row) => Object.values(row.warehouseStock).reduce((s, v) => s + v, 0),
-        {
-          id: 'enAlmacen',
-          header: 'En almacén',
-          cell: (info) => {
-            const row = info.row.original
-            return <MiniStockList products={products} stock={row.warehouseStock} />
-          },
-          sortingFn: 'basic',
-        }
-      ),
-      columnHelper.accessor('payments', {
-        header: 'Pagado',
-        cell: (info) => {
-          const val = info.getValue()
-          return val > 0 ? (
-            <span className="text-sm font-semibold tabular-nums text-success">
-              {formatCurrency(val)}
-            </span>
-          ) : (
-            <span className="text-sm tabular-nums text-muted-soft">—</span>
-          )
-        },
-        sortingFn: 'basic',
-      }),
-    ]
-  }, [columnHelper, products])
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize: 31 } },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-  })
+  const displayRows = useMemo(() => {
+    const filtered = !search
+      ? rows
+      : rows.filter((r) => r.date.includes(search))
+    return [...filtered].sort((a, b) => {
+      const diff = new Date(b.date).getTime() - new Date(a.date).getTime()
+      return sortDir === 'desc' ? diff : -diff
+    })
+  }, [rows, search, sortDir])
 
   const totals = useMemo(() => {
-    const t = {
-      products: {} as Record<string, { boxes: number; value: number }>,
-      transfers: {} as Record<string, { boxes: number; value: number }>,
-      sales: {} as Record<string, { boxes: number; value: number }>,
-      factoryStock: {} as Record<string, number>,
-      warehouseStock: {} as Record<string, number>,
+    const t: {
+      products: Record<string, { boxes: number; value: number }>
+      transfers: Record<string, { boxes: number; value: number }>
+      sales: Record<string, { boxes: number; value: number }>
+      payments: number
+      remaining: number
+    } = {
+      products: {},
+      transfers: {},
+      sales: {},
       payments: 0,
+      remaining: 0,
     }
-    for (const row of rows) {
+    for (const row of displayRows) {
       for (const prod of products) {
         if (!t.products[prod.id]) t.products[prod.id] = { boxes: 0, value: 0 }
         if (!t.transfers[prod.id]) t.transfers[prod.id] = { boxes: 0, value: 0 }
         if (!t.sales[prod.id]) t.sales[prod.id] = { boxes: 0, value: 0 }
-
         const pb = row.products[prod.id]
         if (pb) { t.products[prod.id].boxes += pb.boxes; t.products[prod.id].value += pb.value }
         const tb = row.transfers[prod.id]
         if (tb) { t.transfers[prod.id].boxes += tb.boxes; t.transfers[prod.id].value += tb.value }
         const sb = row.sales[prod.id]
         if (sb) { t.sales[prod.id].boxes += sb.boxes; t.sales[prod.id].value += sb.value }
-
-        t.factoryStock[prod.id] = (t.factoryStock[prod.id] || 0) + row.factoryStock[prod.id]
-        t.warehouseStock[prod.id] = (t.warehouseStock[prod.id] || 0) + row.warehouseStock[prod.id]
       }
       t.payments += row.payments
     }
+    if (displayRows.length > 0) {
+      const firstRow = sortDir === 'desc' ? displayRows[0] : displayRows[displayRows.length - 1]
+      t.remaining = firstRow.remaining
+    }
     return t
-  }, [rows, products])
+  }, [displayRows, products, sortDir])
+
+  const exportRows = useMemo(() => {
+    const list = displayRows.map((r) => {
+      const result: Record<string, string | number> = { Fecha: formatDate(r.date) }
+      for (const prod of products) {
+        result[`Producido ${prod.name}`] = formatNumber(r.products[prod.id]?.boxes ?? 0)
+        result[`Recogido ${prod.name}`] = formatNumber(r.transfers[prod.id]?.boxes ?? 0)
+        result[`Vendido ${prod.name}`] = formatNumber(r.sales[prod.id]?.boxes ?? 0)
+      }
+      result['Pagos USD'] = formatCurrency(r.payments)
+      result['Pendiente USD'] = formatCurrency(r.remaining)
+      return result
+    })
+    return list
+  }, [displayRows, products])
+
+  const exportHeaders = useMemo(() => {
+    const headers: string[] = ['Fecha']
+    for (const prod of products) {
+      headers.push(`Producido ${prod.name}`)
+      headers.push(`Recogido ${prod.name}`)
+      headers.push(`Vendido ${prod.name}`)
+    }
+    headers.push('Pagos USD', 'Pendiente USD')
+    return headers
+  }, [products])
+
+  const exportTotals = useMemo(() => {
+    const result: Record<string, string | number> = { Fecha: 'TOTAL' }
+    for (const prod of products) {
+      result[`Producido ${prod.name}`] = formatNumber(totals.products[prod.id]?.boxes ?? 0)
+      result[`Recogido ${prod.name}`] = formatNumber(totals.transfers[prod.id]?.boxes ?? 0)
+      result[`Vendido ${prod.name}`] = formatNumber(totals.sales[prod.id]?.boxes ?? 0)
+    }
+    result['Pagos USD'] = formatCurrency(totals.payments)
+    result['Pendiente USD'] = formatCurrency(totals.remaining)
+    return result
+  }, [totals, products])
+
+  const columnAligns = useMemo<(('left' | 'center' | 'right')[])>(() => {
+    const aligns: ('left' | 'center' | 'right')[] = ['center']
+    for (let i = 0; i < products.length * 3; i++) aligns.push('right')
+    aligns.push('right', 'right')
+    return aligns
+  }, [products.length])
 
   if (rows.length === 0) {
     return (
@@ -283,181 +156,276 @@ export function DailyResumenTable({
     )
   }
 
-  return (
-    <section className="overflow-hidden">
-      {/* Financial summary header */}
-      <div className="grid grid-cols-2 gap-3 border-b border-hairline bg-surface/40 px-5 py-4 sm:px-6">
-        <div className="flex items-center gap-3 rounded-lg border border-hairline-soft bg-ash/50 px-4 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-warning/10 text-warning">
-            <CreditCard className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted">
-              Pendiente con fábrica
-            </span>
-            <span className="text-base font-semibold tabular-nums text-ink">
-              {formatCurrency(totalPending)}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-lg border border-hairline-soft bg-ash/50 px-4 py-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-success/10 text-success">
-            <Wallet className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-muted">
-              Pagado a fábrica
-            </span>
-            <span className="text-base font-semibold tabular-nums text-ink">
-              {formatCurrency(totalPaid)}
-            </span>
-          </div>
-        </div>
-      </div>
+  const hasProducts = products.length > 0
 
-      {/* Search */}
-      <div className="border-b border-hairline p-4">
+  return (
+    <section className="ts-card overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-hairline px-5 py-4 sm:px-6">
         <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 shrink-0 text-muted" />
-          <input
-            type="text"
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Buscar fecha…"
-            className="w-full bg-transparent text-sm text-body placeholder:text-muted-soft focus:outline-none"
+          <Receipt className="h-4 w-4 text-muted" />
+          <h2 className="text-sm font-medium text-ink">Resumen diario</h2>
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              placeholder="Buscar fecha (YYYY-MM-DD)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ts-input h-8 w-48 pl-8 text-xs"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-hairline px-2 text-xs text-charcoal hover:bg-surface"
+          >
+            {sortDir === 'desc' ? <ArrowDown className="h-3 w-3" /> : <ArrowUp className="h-3 w-3" />}
+            {sortDir === 'desc' ? 'Más reciente' : 'Más antiguo'}
+          </button>
+          <span className="text-xs text-muted">
+            {displayRows.length} día{displayRows.length !== 1 ? 's' : ''}
+          </span>
+          <ExportDropdown
+            rows={exportRows}
+            headers={exportHeaders}
+            filename={`resumen_diario`}
+            pdfTitle="Resumen Diario"
+            pdfSubtitle={`Período: ${displayRows[displayRows.length - 1]?.date ?? ''} a ${displayRows[0]?.date ?? ''}`}
+            totalsRow={exportTotals}
+            columnAligns={columnAligns}
+            disabled={displayRows.length === 0}
           />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-separate border-spacing-0 text-sm">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-hairline bg-ash/50">
-                {headerGroup.headers.map((header, hi) => (
-                  <th
-                    key={header.id}
-                    className={cn(
-                      'cursor-pointer select-none whitespace-nowrap border-b border-hairline px-3 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-muted transition-colors hover:text-ink',
-                      hi > 0 && 'border-l border-l-hairline/60'
-                    )}
-                    onClick={header.column.getToggleSortingHandler()}
+      {/* Financial summary */}
+      <div className="grid grid-cols-2 gap-3 border-b border-hairline bg-surface/40 px-5 py-3 sm:px-6">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-stone">Pendiente con fábrica:</span>
+          <span className="text-sm font-semibold tabular-nums text-error">
+            {formatCurrency(totalPending)}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-stone">Pagado a fábrica:</span>
+          <span className="text-sm font-semibold tabular-nums text-success">
+            {formatCurrency(totalPaid)}
+          </span>
+        </div>
+      </div>
+
+      {displayRows.length === 0 ? (
+        <EmptyState
+          icon={Receipt}
+          title="Sin datos en este período"
+          description="No hay movimientos en el rango de fechas seleccionado."
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            {/* Header row 1: groups */}
+            <thead>
+              <tr>
+                <th
+                  rowSpan={2}
+                  className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom bg-surface/40"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+                    className="flex items-center gap-1"
                   >
-                    <div className="flex items-center gap-1.5">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === 'asc' ? (
-                        <ChevronUp className="h-3.5 w-3.5 text-primary" />
-                      ) : header.column.getIsSorted() === 'desc' ? (
-                        <ChevronDown className="h-3.5 w-3.5 text-primary" />
-                      ) : (
-                        <ChevronsUpDown className="h-3.5 w-3.5 text-muted-soft" />
-                      )}
-                    </div>
+                    Fecha
+                    {sortDir === 'desc' ? (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </th>
+
+                {hasProducts && (
+                  <th
+                    colSpan={products.length}
+                    className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-blue bg-blue-soft/30"
+                  >
+                    Producido
+                  </th>
+                )}
+
+                {hasProducts && (
+                  <th
+                    colSpan={products.length}
+                    className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50"
+                  >
+                    Recogido
+                  </th>
+                )}
+
+                {hasProducts && (
+                  <th
+                    colSpan={products.length}
+                    className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50"
+                  >
+                    Vendido
+                  </th>
+                )}
+
+                <th
+                  colSpan={2}
+                  className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-primary bg-primary-soft/30"
+                >
+                  Pagos a fábrica
+                </th>
+              </tr>
+
+              {/* Header row 2: per product */}
+              <tr>
+                {products.map((prod, i) => (
+                  <th
+                    key={`p-${prod.id}`}
+                    className={cn(
+                      'border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-blue-soft/20',
+                      i === 0 && 'border-l-2 border-l-steel/30'
+                    )}
+                  >
+                    {prod.name}
                   </th>
                 ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row, ri) => (
-              <tr
-                key={row.id}
-                className={cn(
-                  'border-b border-hairline transition-colors hover:bg-ash/40',
-                  ri % 2 === 1 && 'bg-ash/20'
-                )}
-              >
-                {row.getVisibleCells().map((cell, ci) => (
-                  <td
-                    key={cell.id}
+                {products.map((prod, i) => (
+                  <th
+                    key={`r-${prod.id}`}
                     className={cn(
-                      'whitespace-nowrap border-b border-hairline/60 px-3 py-3 align-top',
-                      ci > 0 && 'border-l border-l-hairline/40'
+                      'border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-emerald-50/60',
+                      i === 0 && 'border-l-2 border-l-steel/30'
                     )}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {prod.name}
+                  </th>
+                ))}
+                {products.map((prod, i) => (
+                  <th
+                    key={`s-${prod.id}`}
+                    className={cn(
+                      'border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-amber-50/60',
+                      i === 0 && 'border-l-2 border-l-steel/30'
+                    )}
+                  >
+                    {prod.name}
+                  </th>
+                ))}
+                <th className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-primary-soft/20">
+                  USD
+                </th>
+                <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-primary-soft/20">
+                  Pendiente
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {displayRows.map((r, idx) => (
+                <tr
+                  key={r.date}
+                  className={idx % 2 === 0 ? 'bg-canvas' : 'bg-surface/30'}
+                >
+                  <td className="border border-hairline px-4 py-3 whitespace-nowrap font-mono text-[13px] text-ink">
+                    {formatDate(r.date)}
+                  </td>
+                  {products.map((prod, i) => (
+                    <td
+                      key={`p-${prod.id}`}
+                      className={cn(
+                        'border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-blue-soft/10',
+                        i === 0 && 'border-l-2 border-l-steel/30'
+                      )}
+                    >
+                      {formatNumber(r.products[prod.id]?.boxes ?? 0)}
+                    </td>
+                  ))}
+                  {products.map((prod, i) => (
+                    <td
+                      key={`r-${prod.id}`}
+                      className={cn(
+                        'border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-emerald-50/40',
+                        i === 0 && 'border-l-2 border-l-steel/30'
+                      )}
+                    >
+                      {formatNumber(r.transfers[prod.id]?.boxes ?? 0)}
+                    </td>
+                  ))}
+                  {products.map((prod, i) => (
+                    <td
+                      key={`s-${prod.id}`}
+                      className={cn(
+                        'border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-amber-50/40',
+                        i === 0 && 'border-l-2 border-l-steel/30'
+                      )}
+                    >
+                      {formatNumber(r.sales[prod.id]?.boxes ?? 0)}
+                    </td>
+                  ))}
+                  <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono font-semibold text-success bg-primary-soft/10">
+                    {r.payments > 0 ? formatCurrency(r.payments) : '—'}
+                  </td>
+                  <td className="border border-hairline px-4 py-3 text-right font-mono font-semibold text-error bg-primary-soft/10">
+                    {formatCurrency(r.remaining)}
+                  </td>
+                </tr>
+              ))}
+
+              {/* Totals row */}
+              <tr className="bg-surface font-semibold">
+                <td className="border border-hairline px-4 py-3 text-right text-sm uppercase tracking-wider text-ink">
+                  Total
+                </td>
+                {products.map((prod, i) => (
+                  <td
+                    key={`tp-${prod.id}`}
+                    className={cn(
+                      'border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-blue-soft/20',
+                      i === 0 && 'border-l-2 border-l-steel/30'
+                    )}
+                  >
+                    {formatNumber(totals.products[prod.id]?.boxes ?? 0)}
                   </td>
                 ))}
+                {products.map((prod, i) => (
+                  <td
+                    key={`tr-${prod.id}`}
+                    className={cn(
+                      'border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-emerald-50/60',
+                      i === 0 && 'border-l-2 border-l-steel/30'
+                    )}
+                  >
+                    {formatNumber(totals.transfers[prod.id]?.boxes ?? 0)}
+                  </td>
+                ))}
+                {products.map((prod, i) => (
+                  <td
+                    key={`ts-${prod.id}`}
+                    className={cn(
+                      'border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-amber-50/60',
+                      i === 0 && 'border-l-2 border-l-steel/30'
+                    )}
+                  >
+                    {formatNumber(totals.sales[prod.id]?.boxes ?? 0)}
+                  </td>
+                ))}
+                <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-sm text-success bg-primary-soft/20">
+                  {totals.payments > 0 ? formatCurrency(totals.payments) : '—'}
+                </td>
+                <td className="border border-hairline px-4 py-3 text-right font-mono text-sm text-error bg-primary-soft/20">
+                  {formatCurrency(totals.remaining)}
+                </td>
               </tr>
-            ))}
-            {/* Totals row */}
-            <tr className="border-b-2 border-hairline bg-ash/60 font-semibold">
-              <td className="whitespace-nowrap border-b-2 border-hairline px-3 py-3 text-sm text-ink">Total</td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                <MiniList products={products} items={totals.products} showValue />
-              </td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                <MiniList products={products} items={totals.transfers} showValue />
-              </td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                <MiniList products={products} items={totals.sales} showValue />
-              </td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                <MiniStockList products={products} stock={totals.factoryStock} />
-              </td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                <MiniStockList products={products} stock={totals.warehouseStock} />
-              </td>
-              <td className="whitespace-nowrap border-b-2 border-hairline border-l border-l-hairline/60 px-3 py-3">
-                {totals.payments > 0 ? (
-                  <span className="text-sm font-semibold tabular-nums text-success">
-                    {formatCurrency(totals.payments)}
-                  </span>
-                ) : (
-                  <span className="text-sm tabular-nums text-muted-soft">—</span>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex flex-col gap-3 border-t border-hairline bg-ash/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted">
-            {table.getFilteredRowModel().rows.length} registro(s)
-          </span>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted">Mostrar</span>
-            <select
-              value={table.getState().pagination.pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
-              className="rounded-md border border-hairline bg-surface px-2 py-1 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              {[31, 50, 100, 200, 300].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-            <span className="text-xs text-muted">por página</span>
-          </div>
+            </tbody>
+          </table>
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted">
-            Pág. {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="ts-btn-icon disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="ts-btn-icon disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
     </section>
   )
 }
