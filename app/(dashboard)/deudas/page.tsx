@@ -45,9 +45,27 @@ interface Debt {
   saleId: string | null
   transferId: string | null
   notes: string | null
-  payments: { id: string; amount: number; date: string; type: string; notes: string | null }[]
-  sale?: { product?: { name: string } }
-  transfer?: { product?: { name: string; unitsPerBox: number }; quantity: number }
+  payments: {
+    id: string
+    amount: number
+    currency: string
+    usdAmount: number | null
+    cupAmount: number | null
+    boxes: number | null
+    date: string
+    type: string
+    notes: string | null
+  }[]
+  sale?: {
+    quantity: number
+    product?: { name: string; priceWarehouse: number; unitsPerBox: number }
+  }
+  transfer?: {
+    quantity: number
+    fromLocation: string
+    toLocation: string
+    product?: { name: string; priceWarehouse: number; unitsPerBox: number }
+  }
 }
 
 interface Payment {
@@ -156,28 +174,41 @@ export default function DeudasPage() {
           new Date(d.date).getTime() <= toTs
       )
       .map((d) => {
+        const upb = d.transfer?.product?.unitsPerBox ?? d.sale?.product?.unitsPerBox ?? 100
+        const price = d.transfer?.product?.priceWarehouse ?? d.sale?.product?.priceWarehouse ?? 0.49
+        const units = d.transfer?.quantity ?? d.sale?.quantity ?? 0
+        const boxes = units > 0 ? Math.floor(units / upb) : 0
         const remaining = +(d.amount - d.paidAmount).toFixed(2)
-        const upb = d.transfer?.product?.unitsPerBox || 100
-        const boxes = d.transfer
-          ? Math.floor(d.transfer.quantity / upb)
-          : 0
         const productName = d.transfer?.product?.name ?? d.sale?.product?.name ?? '—'
         const isActive = d.isActive
         const paymentCount = d.payments?.length ?? 0
+        const debtPayments = d.payments ?? []
+        const paidUSD = debtPayments.reduce((s, p) => s + (p.usdAmount ?? p.amount), 0)
+        const paidCUP = debtPayments.reduce((s, p) => s + (p.cupAmount ?? 0), 0)
+        const paidBoxes = debtPayments.reduce((s, p) => s + (p.boxes ?? 0), 0)
+        // remaining boxes: si tenemos paidBoxes, restamos; si no, calculamos desde remaining USD
+        const remainingBoxes = paidBoxes > 0
+          ? +(boxes - paidBoxes).toFixed(2)
+          : remaining > 0 ? +(remaining / (upb * price)).toFixed(2) : 0
         return {
           id: d.id,
           date: d.date,
           product: productName,
           type: d.type,
           notes: d.notes,
+          units,
           boxes,
           debtAmount: d.amount,
           paidAmount: d.paidAmount,
+          paidUSD,
+          paidCUP,
+          paidBoxes,
           remaining,
+          remainingBoxes,
           isActive,
           debtId: d.id,
           paymentCount,
-          payments: d.payments ?? [],
+          payments: debtPayments,
         }
       })
 
@@ -201,13 +232,21 @@ export default function DeudasPage() {
   const totals = useMemo(() => {
     let deuda = 0,
       pagado = 0,
-      restante = 0
+      restante = 0,
+      totalBoxes = 0,
+      totalPaidBoxes = 0,
+      totalRemainingBoxes = 0,
+      totalPaidCUP = 0
     for (const r of rows) {
       deuda += r.debtAmount
       pagado += r.paidAmount
       restante += r.remaining
+      totalBoxes += r.boxes
+      totalPaidBoxes += r.paidBoxes
+      totalRemainingBoxes += r.remainingBoxes
+      totalPaidCUP += r.paidCUP
     }
-    return { deuda, pagado, restante, count: rows.length }
+    return { deuda, pagado, restante, count: rows.length, totalBoxes, totalPaidBoxes, totalRemainingBoxes, totalPaidCUP }
   }, [rows])
 
   const balanceNeto = +(totals.restante - prepaymentTotal).toFixed(2)
@@ -241,10 +280,10 @@ export default function DeudasPage() {
 
       // All payments strictly before this one
       const previousPayments = sortedPayments.slice(0, index)
-      const totalPaidBefore = previousPayments.reduce((s, pp) => s + pp.amount, 0)
+      const totalPaidBefore = previousPayments.reduce((s, pp) => s + (pp.usdAmount ?? pp.amount), 0)
 
       const deudaOriginal = +(totalDebtUpToNow - totalPaidBefore).toFixed(2)
-      const saldoRestante = +(deudaOriginal - p.amount).toFixed(2)
+      const saldoRestante = +(deudaOriginal - (p.usdAmount ?? p.amount)).toFixed(2)
 
       // Product from associated debt (if any)
       const debt = p.debtId ? debtById.get(p.debtId) : undefined
@@ -414,44 +453,26 @@ export default function DeudasPage() {
 
       {/* Stats cards */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Deuda total"
-          value={formatCurrency(totals.deuda)}
-          icon={CreditCard}
-          accent="primary"
-        />
-        <StatCard
-          label="Pagado"
-          value={formatCurrency(totals.pagado)}
-          icon={CheckCircle2}
-          accent="success"
-        />
-        <StatCard
-          label={totals.restante < -0.01 ? 'Saldo a favor' : 'Pendiente'}
-          value={formatCurrency(Math.abs(totals.restante))}
-          icon={totals.restante < -0.01 ? ArrowUpRight : Clock}
-          accent={totals.restante < -0.01 ? 'success' : totals.restante > 0 ? 'warning' : 'success'}
-          hint={
-            totals.restante < -0.01
-              ? 'La fábrica te debe'
-              : pendingCount > 0
-              ? `${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}`
-              : undefined
-          }
-        />
-        <StatCard
-          label={balanceNeto < -0.01 ? 'Saldo a favor (neto)' : 'Balance neto'}
-          value={formatCurrency(Math.abs(balanceNeto))}
-          icon={balanceNeto < -0.01 ? ArrowUpRight : Wallet}
-          accent={balanceNeto < -0.01 ? 'success' : balanceNeto > 0 ? 'error' : 'primary'}
-          hint={
-            balanceNeto < -0.01
-              ? 'Incluyendo adelantos'
-              : prepaymentTotal > 0
-              ? `− ${formatCurrency(prepaymentTotal)} adelantos`
-              : undefined
-          }
-        />
+        <div className="ts-card flex flex-col gap-1 p-4">
+          <span className="text-xs text-stone">Recogidas (cajas)</span>
+          <span className="text-2xl font-semibold text-ink">{formatNumber(totals.totalBoxes)}</span>
+          <span className="text-xs text-muted">{formatCurrency(totals.deuda)} USD</span>
+        </div>
+        <div className="ts-card flex flex-col gap-1 p-4">
+          <span className="text-xs text-stone">Pagado USD</span>
+          <span className="text-2xl font-semibold text-success">{formatCurrency(totals.pagado)}</span>
+          <span className="text-xs text-muted">{formatNumber(totals.totalPaidBoxes)} cajas</span>
+        </div>
+        <div className="ts-card flex flex-col gap-1 p-4">
+          <span className="text-xs text-stone">Pagado CUP</span>
+          <span className="text-2xl font-semibold text-primary">{totals.totalPaidCUP > 0 ? formatNumber(totals.totalPaidCUP) : '—'}</span>
+          <span className="text-xs text-muted">{totals.totalPaidCUP > 0 ? 'Total trimestre' : 'Sin pagos CUP'}</span>
+        </div>
+        <div className="ts-card flex flex-col gap-1 p-4">
+          <span className="text-xs text-stone">Pendiente</span>
+          <span className="text-2xl font-semibold text-error">{formatCurrency(Math.abs(totals.restante))}</span>
+          <span className="text-xs text-muted">{formatNumber(totals.totalRemainingBoxes)} cajas</span>
+        </div>
       </section>
 
       {/* Alerta: deuda negativa (saldo a favor) */}
@@ -534,14 +555,18 @@ export default function DeudasPage() {
                   Producto: r.product,
                   Tipo: r.type,
                   Notas: r.notes || '',
-                  Cajas: r.boxes,
-                  'Deuda total': r.debtAmount,
-                  Pagado: r.paidAmount,
-                  Restante: r.remaining,
+                  'Recogida (cajas)': r.boxes,
+                  'Recogida (unidades)': r.units,
+                  'Deuda total (USD)': r.debtAmount,
+                  'Pagado USD': r.paidUSD,
+                  'Pagado CUP': r.paidCUP,
+                  'Pagado cajas': r.paidBoxes,
+                  'Restante USD': r.remaining,
+                  'Restante cajas': r.remainingBoxes,
                   Estado: r.remaining < -0.01 ? 'A favor' : r.isActive ? 'Pendiente' : 'Pagado',
                   Pagos: r.paymentCount,
                 }))}
-                headers={['Fecha', 'Producto', 'Tipo', 'Notas', 'Cajas', 'Deuda total', 'Pagado', 'Restante', 'Estado', 'Pagos']}
+                headers={['Fecha', 'Producto', 'Tipo', 'Notas', 'Recogida (cajas)', 'Recogida (unidades)', 'Deuda total (USD)', 'Pagado USD', 'Pagado CUP', 'Pagado cajas', 'Restante USD', 'Restante cajas', 'Estado', 'Pagos']}
                 filename={`deudas_${range.from}_${range.to}`}
                 pdfTitle="Deudas por Recogida"
                 pdfSubtitle={`Período: ${range.from} a ${range.to}`}
@@ -558,34 +583,167 @@ export default function DeudasPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <THead>
-                  <TR>
-                    <TH className="w-8" />
-                    <TH>Fecha</TH>
-                    <TH>Producto</TH>
-                    <TH>Tipo</TH>
-                    <TH className="text-center">Cajas</TH>
-                    <TH className="text-right">Deuda total</TH>
-                    <TH className="text-right">Pagado</TH>
-                    <TH className="text-right">Restante</TH>
-                    <TH className="text-center">Estado</TH>
-                    <TH className="text-center">Pagos</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {rows.map((r) => (
+              <table className="w-full border-collapse text-sm">
+                {/* ========== HEADER ROW 1: Main groups ========== */}
+                <thead>
+                  <tr>
+                    <th
+                      rowSpan={2}
+                      className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom"
+                    >
+                      Fecha
+                    </th>
+                    <th
+                      rowSpan={2}
+                      className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom"
+                    >
+                      Producto
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-blue bg-blue-soft/30"
+                    >
+                      Recogida
+                    </th>
+                    <th
+                      rowSpan={2}
+                      className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-steel align-bottom"
+                    >
+                      Deuda (USD)
+                    </th>
+                    <th
+                      colSpan={3}
+                      className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-success bg-success-soft/30"
+                    >
+                      Pagos
+                    </th>
+                    <th
+                      colSpan={2}
+                      className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-error bg-error-soft/30"
+                    >
+                      Restante
+                    </th>
+                    <th
+                      rowSpan={2}
+                      className="border border-hairline px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-steel align-bottom"
+                    >
+                      Estado
+                    </th>
+                    <th
+                      rowSpan={2}
+                      className="border border-hairline px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-steel align-bottom w-10"
+                    >
+                      &nbsp;
+                    </th>
+                  </tr>
+
+                  {/* ========== HEADER ROW 2: Sub-columns ========== */}
+                  <tr>
+                    {/* Recogida sub-columns */}
+                    <th className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-blue-soft/20">
+                      Cajas
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-blue-soft/20">
+                      Unidades
+                    </th>
+
+                    {/* Pagos sub-columns */}
+                    <th className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      USD
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      CUP
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      Cajas
+                    </th>
+
+                    {/* Restante sub-columns */}
+                    <th className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-error-soft/20">
+                      USD
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-error-soft/20">
+                      Cajas
+                    </th>
+                  </tr>
+                </thead>
+
+                {/* ========== BODY ========== */}
+                <tbody>
+                  {rows.map((r, idx) => (
                     <>
-                      <TR
+                      <tr
                         key={r.id}
                         className={cn(
                           'cursor-pointer transition-colors',
+                          idx % 2 === 0 ? 'bg-canvas' : 'bg-surface/30',
                           r.isActive ? '' : 'bg-success-soft/40',
                           expandedDebtId === r.debtId ? 'bg-surface' : ''
                         )}
                         onClick={() => r.debtId && toggleExpand(r.debtId)}
                       >
-                        <TD className="w-8">
+                        <td className="border border-hairline px-4 py-3 whitespace-nowrap font-mono text-[13px] text-ink">
+                          {formatDate(r.date)}
+                        </td>
+                        <td className="border border-hairline px-4 py-3 font-medium text-ink">
+                          {r.product}
+                        </td>
+
+                        {/* Recogida */}
+                        <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-charcoal bg-blue-soft/10">
+                          {formatNumber(r.boxes)}
+                        </td>
+                        <td className="border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-blue-soft/10">
+                          {formatNumber(r.units)}
+                        </td>
+
+                        {/* Deuda */}
+                        <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono font-semibold text-ink">
+                          {formatCurrency(r.debtAmount)}
+                        </td>
+
+                        {/* Pagos */}
+                        <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-success bg-success-soft/10">
+                          {formatCurrency(r.paidUSD)}
+                        </td>
+                        <td className="border border-hairline px-4 py-3 text-right font-mono text-primary bg-success-soft/10">
+                          {r.paidCUP > 0 ? formatNumber(r.paidCUP) : '—'}
+                        </td>
+                        <td className="border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-success-soft/10">
+                          {r.paidBoxes > 0 ? formatNumber(r.paidBoxes) : '—'}
+                        </td>
+
+                        {/* Restante */}
+                        <td className={cn(
+                          'border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono font-semibold bg-error-soft/10',
+                          r.remaining < -0.01 ? 'text-success' : r.remaining > 0.01 ? 'text-error' : 'text-ink'
+                        )}>
+                          {r.remaining < -0.01 ? (
+                            <span className="inline-flex items-center gap-1">
+                              <ArrowUpRight className="h-3 w-3" />
+                              {formatCurrency(Math.abs(r.remaining))}
+                            </span>
+                          ) : (
+                            formatCurrency(r.remaining)
+                          )}
+                        </td>
+                        <td className="border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-error-soft/10">
+                          {r.remainingBoxes > 0 ? formatNumber(r.remainingBoxes) : '—'}
+                        </td>
+
+                        {/* Estado */}
+                        <td className="border border-hairline px-4 py-3 text-center">
+                          {r.remaining < -0.01 ? (
+                            <Badge tone="success" dot>A favor</Badge>
+                          ) : r.isActive ? (
+                            <Badge tone="warning" dot>Pendiente</Badge>
+                          ) : (
+                            <Badge tone="success" dot>Pagado</Badge>
+                          )}
+                        </td>
+
+                        {/* Expand */}
+                        <td className="border border-hairline px-4 py-3 text-center">
                           {r.debtId && r.payments.length > 0 && (
                             <button
                               type="button"
@@ -602,67 +760,13 @@ export default function DeudasPage() {
                               )}
                             </button>
                           )}
-                        </TD>
-                        <TD className="whitespace-nowrap font-mono text-[13px]">
-                          {formatDate(r.date)}
-                        </TD>
-                        <TD className="font-medium text-ink">{r.product}</TD>
-                        <TD>
-                          {r.type === 'transfer' ? 'Recogida' : r.type === 'manual' ? 'Manual' : r.type}
-                        </TD>
-                        <TD className="text-center font-mono">
-                          {formatNumber(r.boxes)}
-                        </TD>
-                        <TD className="text-right font-mono font-medium text-ink">
-                          {formatCurrency(r.debtAmount)}
-                        </TD>
-                        <TD className="text-right font-mono text-success">
-                          {formatCurrency(r.paidAmount)}
-                        </TD>
-                        <TD className={cn(
-                          'text-right font-mono font-semibold',
-                          r.remaining < -0.01 ? 'text-success' : r.remaining > 0.01 ? 'text-error' : 'text-ink'
-                        )}>
-                          {r.remaining < -0.01 ? (
-                            <span className="inline-flex items-center gap-1">
-                              <ArrowUpRight className="h-3 w-3" />
-                              {formatCurrency(Math.abs(r.remaining))}
-                            </span>
-                          ) : (
-                            formatCurrency(r.remaining)
-                          )}
-                        </TD>
-                        <TD className="text-center">
-                          {r.remaining < -0.01 ? (
-                            <Badge tone="success" dot>
-                              A favor
-                            </Badge>
-                          ) : r.isActive ? (
-                            <Badge tone="warning" dot>
-                              Pendiente
-                            </Badge>
-                          ) : (
-                            <Badge tone="success" dot>
-                              Pagado
-                            </Badge>
-                          )}
-                        </TD>
-                        <TD className="text-center text-xs text-muted">
-                          {r.paymentCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 rounded-pill bg-surface px-2 py-0.5 font-mono">
-                              <History className="h-3 w-3" />
-                              {r.paymentCount}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </TD>
-                      </TR>
+                        </td>
+                      </tr>
 
                       {/* Expanded payment history */}
                       {expandedDebtId === r.debtId && r.debtId && r.payments.length > 0 && (
-                        <TR className="bg-surface/60">
-                          <TD colSpan={10} className="px-0 py-0">
+                        <tr className="bg-surface/60">
+                          <td colSpan={11} className="px-0 py-0">
                             <div className="border-t border-hairline-soft px-6 py-4">
                               <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                                 <Receipt className="h-4 w-4 text-blue" />
@@ -679,7 +783,13 @@ export default function DeudasPage() {
                                         Tipo
                                       </th>
                                       <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
-                                        Monto
+                                        USD
+                                      </th>
+                                      <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        CUP
+                                      </th>
+                                      <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
+                                        Cajas
                                       </th>
                                       <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-steel">
                                         Saldo después
@@ -698,7 +808,7 @@ export default function DeudasPage() {
                                           new Date(b.date).getTime()
                                       )
                                       return sortedPayments.map((payment, idx) => {
-                                        runningTotal -= payment.amount
+                                        runningTotal -= (payment.usdAmount ?? payment.amount)
                                         return (
                                           <tr
                                             key={payment.id}
@@ -714,7 +824,13 @@ export default function DeudasPage() {
                                               {getPaymentTypeBadge(payment.type)}
                                             </td>
                                             <td className="px-3 py-2 text-right font-mono font-medium text-success">
-                                              {formatCurrency(payment.amount)}
+                                              {formatCurrency(payment.usdAmount ?? payment.amount)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono text-primary">
+                                              {payment.cupAmount ? formatNumber(payment.cupAmount) : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-mono text-charcoal">
+                                              {payment.boxes ? formatNumber(payment.boxes) : '—'}
                                             </td>
                                             <td className="px-3 py-2 text-right font-mono font-semibold">
                                               {formatCurrency(Math.max(0, runningTotal))}
@@ -729,14 +845,17 @@ export default function DeudasPage() {
                                   </tbody>
                                   <tfoot>
                                     <tr className="border-t border-hairline bg-surface font-medium">
-                                      <td
-                                        colSpan={2}
-                                        className="px-3 py-2 text-right text-xs uppercase tracking-wider text-ink"
-                                      >
+                                      <td colSpan={2} className="px-3 py-2 text-right text-xs uppercase tracking-wider text-ink">
                                         Total pagado
                                       </td>
                                       <td className="px-3 py-2 text-right font-mono text-success">
-                                        {formatCurrency(r.paidAmount)}
+                                        {formatCurrency(r.paidUSD)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-primary">
+                                        {r.paidCUP > 0 ? formatNumber(r.paidCUP) : '—'}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-mono text-charcoal">
+                                        {r.paidBoxes > 0 ? formatNumber(r.paidBoxes) : '—'}
                                       </td>
                                       <td className="px-3 py-2 text-right font-mono">
                                         {formatCurrency(r.remaining)}
@@ -747,25 +866,44 @@ export default function DeudasPage() {
                                 </table>
                               </div>
                             </div>
-                          </TD>
-                        </TR>
+                          </td>
+                        </tr>
                       )}
                     </>
                   ))}
-                  {/* Totals row */}
-                  <TR className="bg-surface font-medium hover:bg-surface">
-                    <TD colSpan={4} className="text-right uppercase tracking-wider text-ink">
+
+                  {/* ========== TOTALS ROW ========== */}
+                  <tr className="bg-surface font-semibold">
+                    <td className="border border-hairline px-4 py-3 text-right text-sm uppercase tracking-wider text-ink">
                       Total
-                    </TD>
-                    <TD colSpan={1} />
-                    <TD className="text-right font-mono text-primary">
+                    </td>
+                    <td className="border border-hairline px-4 py-3" />
+
+                    {/* Recogida totals */}
+                    <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-sm text-ink bg-blue-soft/20">
+                      {formatNumber(totals.totalBoxes)}
+                    </td>
+                    <td className="border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-blue-soft/20" />
+
+                    {/* Deuda total */}
+                    <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-sm text-ink bg-blue-soft/20">
                       {formatCurrency(totals.deuda)}
-                    </TD>
-                    <TD className="text-right font-mono text-success">
+                    </td>
+
+                    {/* Pagos totals */}
+                    <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-sm text-success bg-success-soft/20">
                       {formatCurrency(totals.pagado)}
-                    </TD>
-                    <TD className={cn(
-                      'text-right font-mono',
+                    </td>
+                    <td className="border border-hairline px-4 py-3 text-right font-mono text-sm text-primary bg-success-soft/20">
+                      {totals.totalPaidCUP > 0 ? formatNumber(totals.totalPaidCUP) : '—'}
+                    </td>
+                    <td className="border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-success-soft/20">
+                      {formatNumber(totals.totalPaidBoxes)}
+                    </td>
+
+                    {/* Restante totals */}
+                    <td className={cn(
+                      'border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-sm bg-error-soft/20',
                       totals.restante < -0.01 ? 'text-success' : 'text-error'
                     )}>
                       {totals.restante < -0.01 ? (
@@ -776,11 +914,15 @@ export default function DeudasPage() {
                       ) : (
                         formatCurrency(totals.restante)
                       )}
-                    </TD>
-                    <TD colSpan={2} />
-                  </TR>
-                </TBody>
-              </Table>
+                    </td>
+                    <td className="border border-hairline px-4 py-3 text-right font-mono text-sm text-ink bg-error-soft/20">
+                      {formatNumber(totals.totalRemainingBoxes)}
+                    </td>
+
+                    <td colSpan={2} />
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </section>
@@ -805,55 +947,83 @@ export default function DeudasPage() {
             />
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Fecha</TH>
-                    <TH>Tipo</TH>
-                    <TH>Producto</TH>
-                    <TH className="text-right">USD</TH>
-                    <TH className="text-right">CUP</TH>
-                    <TH className="text-right">Cajas</TH>
-                    <TH className="text-right">Deuda original</TH>
-                    <TH className="text-right">Saldo restante</TH>
-                    <TH>Notas</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {paymentHistory.map((p) => (
-                    <TR key={p.id}>
-                      <TD className="whitespace-nowrap font-mono text-[13px]">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th rowSpan={2} className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Fecha
+                    </th>
+                    <th rowSpan={2} className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Tipo
+                    </th>
+                    <th rowSpan={2} className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Producto
+                    </th>
+                    <th colSpan={3} className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-success bg-success-soft/30">
+                      Pago
+                    </th>
+                    <th rowSpan={2} className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Deuda original
+                    </th>
+                    <th rowSpan={2} className="border border-hairline px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Saldo restante
+                    </th>
+                    <th rowSpan={2} className="border border-hairline px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-steel align-bottom">
+                      Notas
+                    </th>
+                  </tr>
+                  <tr>
+                    <th className="border border-hairline border-l-2 border-l-steel/30 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      USD
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      CUP
+                    </th>
+                    <th className="border border-hairline px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-steel bg-success-soft/20">
+                      Cajas
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paymentHistory.map((p, idx) => (
+                    <tr
+                      key={p.id}
+                      className={idx % 2 === 0 ? 'bg-canvas' : 'bg-surface/30'}
+                    >
+                      <td className="border border-hairline px-4 py-3 whitespace-nowrap font-mono text-[13px] text-ink">
                         {formatDate(p.date)}
-                      </TD>
-                      <TD>{getPaymentTypeBadge(p.type)}</TD>
-                      <TD className="text-ink">{p.productName}</TD>
-                      <TD className="text-right font-mono font-medium text-success">
+                      </td>
+                      <td className="border border-hairline px-4 py-3">
+                        {getPaymentTypeBadge(p.type)}
+                      </td>
+                      <td className="border border-hairline px-4 py-3 text-ink">
+                        {p.productName}
+                      </td>
+                      <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono font-medium text-success bg-success-soft/10">
                         {formatCurrency(p.usdAmount ?? p.amount)}
-                      </TD>
-                      <TD className="text-right font-mono text-slate">
-                        {p.currency === 'CUP' && p.cupAmount
-                          ? formatNumber(p.cupAmount)
-                          : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-slate">
-                        {p.boxes ? `${formatNumber(p.boxes)} cjs` : '—'}
-                      </TD>
-                      <TD className="text-right font-mono text-ink">
+                      </td>
+                      <td className="border border-hairline px-4 py-3 text-right font-mono text-primary bg-success-soft/10">
+                        {p.cupAmount ? formatNumber(p.cupAmount) : '—'}
+                      </td>
+                      <td className="border border-hairline px-4 py-3 text-right font-mono text-charcoal bg-success-soft/10">
+                        {p.boxes ? formatNumber(p.boxes) : '—'}
+                      </td>
+                      <td className="border border-hairline border-l-2 border-l-steel/30 px-4 py-3 text-right font-mono text-ink">
                         {formatCurrency(p.deudaOriginal)}
-                      </TD>
-                      <TD
-                        className={cn(
-                          'text-right font-mono font-semibold',
-                          p.saldoRestante <= 0.01 ? 'text-success' : 'text-error'
-                        )}
-                      >
+                      </td>
+                      <td className={cn(
+                        'border border-hairline px-4 py-3 text-right font-mono font-semibold',
+                        p.saldoRestante <= 0.01 ? 'text-success' : 'text-error'
+                      )}>
                         {formatCurrency(Math.max(0, p.saldoRestante))}
-                      </TD>
-                      <TD className="text-muted">{p.notes || '—'}</TD>
-                    </TR>
+                      </td>
+                      <td className="border border-hairline px-4 py-3 text-muted">
+                        {p.notes || '—'}
+                      </td>
+                    </tr>
                   ))}
-                </TBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </section>

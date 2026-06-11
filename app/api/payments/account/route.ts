@@ -33,6 +33,9 @@ export async function POST(request: Request) {
     }
 
     let remainingAmount = +amount
+    let remainingUsdAmount = usdAmount ?? null
+    let remainingCupAmount = cupAmount ?? null
+    let remainingBoxes = boxes ?? null
     const paymentsCreated: Array<{
       id: string
       debtId: string
@@ -48,7 +51,20 @@ export async function POST(request: Request) {
 
       const paymentAmount = Math.min(remainingAmount, debtRemaining)
       const isTotal = paymentAmount >= debtRemaining - 0.01
+      const isLastPayment = remainingAmount <= debtRemaining + 0.01
       const newPaidAmount = +(debt.paidAmount + paymentAmount).toFixed(2)
+
+      // Calcular valores proporcionales para este split
+      const ratio = remainingAmount > 0 ? paymentAmount / remainingAmount : 0
+      const paymentUsdAmount = usdAmount != null
+        ? isLastPayment ? remainingUsdAmount : +(remainingUsdAmount * ratio).toFixed(2)
+        : (paymentCurrency === 'USD' ? paymentAmount : null)
+      const paymentCupAmount = cupAmount != null
+        ? isLastPayment ? remainingCupAmount : +(remainingCupAmount * ratio).toFixed(2)
+        : (paymentCurrency === 'CUP' ? paymentAmount : null)
+      const paymentBoxes = boxes != null
+        ? isLastPayment ? remainingBoxes : +(remainingBoxes * ratio).toFixed(2)
+        : null
 
       const result = await prisma.$transaction(async (tx) => {
         const payment = await tx.debtPayment.create({
@@ -56,9 +72,9 @@ export async function POST(request: Request) {
             debtId: debt.id,
             amount: paymentAmount,
             currency: paymentCurrency,
-            usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? paymentAmount : null),
-            cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? paymentAmount : null),
-            boxes: boxes ?? null,
+            usdAmount: paymentUsdAmount,
+            cupAmount: paymentCupAmount,
+            boxes: paymentBoxes,
             exchangeRate: exchangeRate ?? null,
             date: new Date(date),
             notes: notes || (isTotal ? 'Pago total (a cuenta)' : 'Pago parcial (a cuenta)'),
@@ -85,6 +101,15 @@ export async function POST(request: Request) {
       })
 
       remainingAmount = +(remainingAmount - paymentAmount).toFixed(2)
+      if (usdAmount != null && paymentUsdAmount != null) {
+        remainingUsdAmount = +(remainingUsdAmount - paymentUsdAmount).toFixed(2)
+      }
+      if (cupAmount != null && paymentCupAmount != null) {
+        remainingCupAmount = +(remainingCupAmount - paymentCupAmount).toFixed(2)
+      }
+      if (boxes != null && paymentBoxes != null) {
+        remainingBoxes = +(remainingBoxes - paymentBoxes).toFixed(2)
+      }
     }
 
     const totalApplied = +(amount - remainingAmount).toFixed(2)
