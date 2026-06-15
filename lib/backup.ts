@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import AdmZip from 'adm-zip'
+import { deflateSync, inflateSync } from 'zlib'
 
 export interface BackupMetadata {
   appName: string
@@ -24,6 +24,130 @@ export interface BackupPreview {
 
 const APP_NAME = 'Atrévete Luna'
 const APP_VERSION = '1.0.0'
+
+// ── ZIP helpers (zero external deps) ──────────────────────────
+
+const CRC32_TABLE = makeCrc32Table()
+
+function makeCrc32Table(): Uint32Array {
+  const table = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    }
+    table[n] = c
+  }
+  return table
+}
+
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC32_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function dosDateTime(dt: Date): { time: number; dosDate: number } {
+  const time = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >>> 1)
+  const dosDate = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate()
+  return { time, dosDate }
+}
+
+function createZip(filename: string, data: Buffer): Buffer {
+  const compressed = deflateSync(data, { level: 9 })
+  const now = new Date()
+  const { time, dosDate } = dosDateTime(now)
+  const crc = crc32(data)
+  const nameBuf = Buffer.from(filename, 'utf-8')
+  const nameLen = nameBuf.length
+
+  // Local file header
+  const localHeader = Buffer.alloc(30)
+  localHeader.writeUInt32LE(0x04034b50, 0)     // signature
+  localHeader.writeUInt16LE(20, 4)               // version needed
+  localHeader.writeUInt16LE(0, 6)                // flags
+  localHeader.writeUInt16LE(8, 8)                // compression: deflate
+  localHeader.writeUInt16LE(time, 10)            // mod time
+  localHeader.writeUInt16LE(dosDate, 12)         // mod dosDate
+  localHeader.writeUInt32LE(crc, 14)             // crc32
+  localHeader.writeUInt32LE(compressed.length, 18) // compressed size
+  localHeader.writeUInt32LE(data.length, 22)     // uncompressed size
+  localHeader.writeUInt16LE(nameLen, 26)         // filename length
+  localHeader.writeUInt16LE(0, 28)               // extra field length
+
+  // Central directory header
+  const centralHeader = Buffer.alloc(46)
+  centralHeader.writeUInt32LE(0x02014b50, 0)     // signature
+  centralHeader.writeUInt16LE(20, 4)               // version made by
+  centralHeader.writeUInt16LE(20, 6)               // version needed
+  centralHeader.writeUInt16LE(0, 8)                // flags
+  centralHeader.writeUInt16LE(8, 10)               // compression: deflate
+  centralHeader.writeUInt16LE(time, 12)            // mod time
+  centralHeader.writeUInt16LE(dosDate, 14)         // mod dosDate
+  centralHeader.writeUInt32LE(crc, 16)             // crc32
+  centralHeader.writeUInt32LE(compressed.length, 20) // compressed size
+  centralHeader.writeUInt32LE(data.length, 24)     // uncompressed size
+  centralHeader.writeUInt16LE(nameLen, 28)         // filename length
+  centralHeader.writeUInt16LE(0, 30)               // extra field length
+  centralHeader.writeUInt16LE(0, 32)               // file comment length
+  centralHeader.writeUInt16LE(0, 34)               // disk number start
+  centralHeader.writeUInt16LE(0, 36)               // internal file attributes
+  centralHeader.writeUInt32LE(0, 38)               // external file attributes
+
+  const localHeaderOffset = 0
+  centralHeader.writeUInt32LE(localHeaderOffset, 42) // relative offset
+
+  // End of central directory
+  const centralOffset = localHeader.length + nameLen + compressed.length
+  const centralSize = centralHeader.length + nameLen
+
+  const eocd = Buffer.alloc(22)
+  eocd.writeUInt32LE(0x06054b50, 0)              // signature
+  eocd.writeUInt16LE(0, 4)                        // disk number
+  eocd.writeUInt16LE(0, 6)                        // disk with central dir
+  eocd.writeUInt16LE(1, 8)                        // entries on disk
+  eocd.writeUInt16LE(1, 10)                       // total entries
+  eocd.writeUInt32LE(centralSize, 12)             // size of central dir
+  eocd.writeUInt32LE(centralOffset, 16)           // offset of central dir
+  eocd.writeUInt16LE(0, 20)                       // comment length
+
+  return Buffer.concat([
+    localHeader, nameBuf, compressed,
+    centralHeader, nameBuf,
+    eocd,
+  ])
+}
+
+function readZipEntry(zipBuffer: Buffer): { filename: string; data: Buffer } | null {
+  try {
+    const signature = zipBuffer.readUInt32LE(0)
+    if (signature !== 0x04034b50) return null
+
+    const nameLen = zipBuffer.readUInt16LE(26)
+    const extraLen = zipBuffer.readUInt16LE(28)
+    const compMethod = zipBuffer.readUInt16LE(8)
+    const compSize = zipBuffer.readUInt32LE(18)
+    const uncompSize = zipBuffer.readUInt32LE(22)
+
+    const filename = zipBuffer.subarray(30, 30 + nameLen).toString('utf-8')
+    const dataStart = 30 + nameLen + extraLen
+    const compressedData = zipBuffer.subarray(dataStart, dataStart + compSize)
+
+    if (compMethod === 0) {
+      return { filename, data: compressedData }
+    }
+    if (compMethod === 8) {
+      return { filename, data: inflateSync(compressedData) }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// ── Database helpers ──────────────────────────────────────────
 
 async function getTableNames(): Promise<string[]> {
   const result = await prisma.$queryRawUnsafe<{ table_name: string }[]>(
@@ -91,6 +215,8 @@ function topologicalSort(
   return result
 }
 
+// ── Public API ────────────────────────────────────────────────
+
 export async function generateBackupZip(userName: string): Promise<{
   buffer: Buffer
   filename: string
@@ -115,27 +241,30 @@ export async function generateBackupZip(userName: string): Promise<{
     data,
   }
 
-  const zip = new AdmZip()
-  zip.addFile('backup.json', Buffer.from(JSON.stringify(manifest, null, 2)))
+  const jsonBuffer = Buffer.from(JSON.stringify(manifest, null, 2))
+  const zipBuffer = createZip('backup.json', jsonBuffer)
 
   const now = new Date()
   const pad = (n: number) => n.toString().padStart(2, '0')
   const filename = `backup-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}.zip`
 
-  return { buffer: zip.toBuffer(), filename }
+  return { buffer: zipBuffer, filename }
 }
 
 export async function validateBackup(
   buffer: Buffer
 ): Promise<{ valid: boolean; error?: string; preview?: BackupPreview }> {
   try {
-    const zip = new AdmZip(buffer)
-    const entry = zip.getEntry('backup.json')
+    const entry = readZipEntry(buffer)
     if (!entry) {
+      return { valid: false, error: 'Archivo de backup inválido: no se pudo leer el contenido del ZIP' }
+    }
+
+    if (entry.filename !== 'backup.json') {
       return { valid: false, error: 'Archivo de backup inválido: no se encontró backup.json en el ZIP' }
     }
 
-    const content = entry.getData().toString('utf-8')
+    const content = entry.data.toString('utf-8')
     let manifest: BackupManifest
     try {
       manifest = JSON.parse(content)
@@ -211,18 +340,14 @@ export async function restoreBackup(
         const quotedColumns = columns.map((c) => `"${c}"`).join(', ')
         const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ')
 
-        const batchSize = 100
-        for (let i = 0; i < rows.length; i += batchSize) {
-          const batch = rows.slice(i, i + batchSize)
-          for (const row of batch) {
-            const values = columns.map((c) => (row as Record<string, unknown>)[c] ?? null)
-            await tx.$executeRawUnsafe(
-              `INSERT INTO "${table}" (${quotedColumns}) VALUES (${placeholders})`,
-              ...values
-            )
-          }
-          totalRestored += batch.length
+        for (const row of rows) {
+          const values = columns.map((c) => (row as Record<string, unknown>)[c] ?? null)
+          await tx.$executeRawUnsafe(
+            `INSERT INTO "${table}" (${quotedColumns}) VALUES (${placeholders})`,
+            ...values
+          )
         }
+        totalRestored += (rows as unknown[]).length
       }
     })
 
@@ -239,11 +364,9 @@ export async function restoreBackup(
 
 function parseManifest(buffer: Buffer): BackupManifest | null {
   try {
-    const zip = new AdmZip(buffer)
-    const entry = zip.getEntry('backup.json')
-    if (!entry) return null
-    const content = entry.getData().toString('utf-8')
-    return JSON.parse(content)
+    const entry = readZipEntry(buffer)
+    if (!entry || entry.filename !== 'backup.json') return null
+    return JSON.parse(entry.data.toString('utf-8'))
   } catch {
     return null
   }
