@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { deflateSync, inflateSync } from 'zlib'
+import { deflateRawSync, inflateRawSync } from 'zlib'
 
 export interface BackupMetadata {
   appName: string
@@ -56,7 +56,7 @@ function dosDateTime(dt: Date): { time: number; dosDate: number } {
 }
 
 function createZip(filename: string, data: Buffer): Buffer {
-  const compressed = deflateSync(data, { level: 9 })
+  const compressed = deflateRawSync(data, { level: 9 })
   const now = new Date()
   const { time, dosDate } = dosDateTime(now)
   const crc = crc32(data)
@@ -139,7 +139,7 @@ function readZipEntry(zipBuffer: Buffer): { filename: string; data: Buffer } | n
       return { filename, data: compressedData }
     }
     if (compMethod === 8) {
-      return { filename, data: inflateSync(compressedData) }
+      return { filename, data: inflateRawSync(compressedData) }
     }
     return null
   } catch {
