@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings, Save, CheckCircle2, Info, Database, KeyRound, Layers } from 'lucide-react'
+import Link from 'next/link'
+import { Settings, Save, CheckCircle2, Info, Database, KeyRound, Layers, HardDrive, Shield, UserCog, ClipboardList, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { PageHeader } from '@/src/components/ui/PageHeader'
 import { Button } from '@/src/components/ui/Button'
@@ -134,6 +135,41 @@ export default function ConfiguracionPage() {
             />
           </dl>
         </section>
+
+        <section className="ts-card-pad">
+          <div className="mb-4 flex items-center gap-2">
+            <Shield className="h-5 w-5 text-pewter" />
+            <h2 className="text-base font-medium text-ink">
+              Administración del sistema
+            </h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <AdminCard
+              href="/configuracion/roles"
+              icon={<Shield className="h-5 w-5" />}
+              title="Roles y Permisos"
+              description="Gestiona los roles y permisos del sistema"
+            />
+            <AdminCard
+              href="/configuracion/usuarios"
+              icon={<UserCog className="h-5 w-5" />}
+              title="Usuarios"
+              description="Administra los usuarios del sistema"
+            />
+            <AdminCard
+              href="/configuracion/auditoria"
+              icon={<ClipboardList className="h-5 w-5" />}
+              title="Auditoría"
+              description="Consulta el registro de actividades"
+            />
+            <AdminCard
+              href="/configuracion/copias-seguridad"
+              icon={<HardDrive className="h-5 w-5" />}
+              title="Copias de Seguridad"
+              description="Genera y restaura respaldos completos"
+            />
+          </div>
+        </section>
       </div>
     </div>
   )
@@ -154,5 +190,35 @@ function InfoRow({
       <span className="w-28 shrink-0 text-muted">{label}</span>
       <span className="font-medium text-ink">{value}</span>
     </div>
+  )
+}
+
+function AdminCard({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string
+  icon: React.ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-3 rounded-lg border border-hairline-soft p-4 transition-colors hover:border-stone hover:bg-surface"
+    >
+      <span className="mt-0.5 shrink-0 text-steel group-hover:text-primary transition-colors">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 text-sm font-medium text-ink group-hover:text-primary transition-colors">
+          {title}
+          <ArrowRight className="h-3.5 w-3.5 opacity-0 -ml-1 group-hover:opacity-100 group-hover:ml-0 transition-all" />
+        </div>
+        <p className="mt-0.5 text-xs text-slate">{description}</p>
+      </div>
+    </Link>
   )
 }
