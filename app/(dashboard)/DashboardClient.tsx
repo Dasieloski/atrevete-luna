@@ -25,10 +25,12 @@ import { ProductionCalendar } from '@/src/components/dashboard/ProductionCalenda
 import { DailySummaryTable } from '@/src/components/dashboard/DailySummaryTable'
 import { DailyResumenTable, type ResumenRow } from '@/src/components/dashboard/DailyResumenTable'
 import { DayDetailModal } from '@/src/components/dashboard/DayDetailModal'
+import { QuickProcessModal } from '@/src/components/dashboard/QuickProcessModal'
 import { DashboardCharts } from '@/src/components/dashboard/DashboardCharts'
 import { PageHeader } from '@/src/components/ui/PageHeader'
 import { Button } from '@/src/components/ui/Button'
 import { StatCard } from '@/src/components/StatCard'
+import { Zap } from 'lucide-react'
 import { Tabs } from '@/src/components/ui/Tabs'
 
 import { Badge } from '@/src/components/ui/Badge'
@@ -85,6 +87,7 @@ interface WasteRecord {
 interface PaymentRecord {
   id: string
   amount: number
+  usdAmount: number | null
   date: string
   type: string
   notes: string | null
@@ -192,7 +195,7 @@ function buildDailyData(
         distributionValue: 0,
         payments: 0,
       }
-    map[key].payments += p.amount
+    map[key].payments += p.usdAmount ?? p.amount
   }
 
   const priceMap: Record<string, number> = {}
@@ -248,6 +251,7 @@ export default function DashboardClient() {
   const [allTimeData, setAllTimeData] = useState<DashboardData | null>(null)
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [showQuickProcess, setShowQuickProcess] = useState(false)
 
   const refresh = useCallback(async (range: DateRange) => {
     setLoading(true)
@@ -506,16 +510,25 @@ export default function DashboardClient() {
         title="Panel de control"
         description="Producción, almacén, ventas y deudas en un solo lugar."
         actions={
-          <Button
-            variant="secondary"
-            leadingIcon={
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            }
-            onClick={() => refresh(dateRange)}
-            disabled={loading}
-          >
-            {loading ? 'Cargando…' : 'Actualizar'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="yellow"
+              leadingIcon={<Zap className="h-4 w-4" />}
+              onClick={() => setShowQuickProcess(true)}
+            >
+              Proceso rápido
+            </Button>
+            <Button
+              variant="secondary"
+              leadingIcon={
+                <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              }
+              onClick={() => refresh(dateRange)}
+              disabled={loading}
+            >
+              {loading ? 'Cargando…' : 'Actualizar'}
+            </Button>
+          </div>
         }
       />
 
@@ -783,6 +796,14 @@ export default function DashboardClient() {
             dayData={selectedDate ? calendarDailyData[selectedDate] : undefined}
             products={allTimeData?.products ?? []}
             stockData={selectedDate ? stockByDate[selectedDate] : undefined}
+          />
+
+          <QuickProcessModal
+            open={showQuickProcess}
+            onClose={() => setShowQuickProcess(false)}
+            onComplete={() => {
+              refresh(dateRange)
+            }}
           />
         </div>
       )}

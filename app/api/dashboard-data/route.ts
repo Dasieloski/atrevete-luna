@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       orderBy: { date: 'asc' },
     }),
     prisma.transfer.findMany({
-      where: { date: dateFilter, toLocation: 'main' },
+      where: { date: dateFilter, fromLocation: 'factory', toLocation: 'main' },
       include: { product: true },
       orderBy: { date: 'asc' },
     }),
@@ -47,18 +47,30 @@ export async function GET(request: Request) {
     }),
   ])
 
-  // Get all debts up to the end date for running balance calculation
-  const endDate = new Date(to + 'T23:59:59Z')
-  const allDebts = await prisma.debt.findMany({
-    where: {
-      date: {
-        lte: endDate,
-      },
-    },
-    select: { amount: true, paidAmount: true, date: true },
+  // Compute running debt exactly like the pagos page:
+  // debt = sum of transfers (factory→main) value
+  // payments = sum of (usdAmount ?? amount) from debt payments
+  const allTransfers = await prisma.transfer.findMany({
+    where: { date: { lte: new Date(to + 'T23:59:59Z') }, fromLocation: 'factory', toLocation: 'main' },
+    include: { product: true },
+    orderBy: { date: 'asc' },
+  })
+  const allPayments = await prisma.debtPayment.findMany({
+    where: { date: { lte: new Date(to + 'T23:59:59Z') } },
+    orderBy: { date: 'asc' },
   })
 
-  const totalDebt = allDebts.reduce((sum, d) => sum + (d.amount - d.paidAmount), 0)
+  let cumulativeDebt = 0
+  let cumulativePaid = 0
+  for (const t of allTransfers) {
+    const price = t.product?.priceWarehouse ?? 0.49
+    cumulativeDebt += t.quantity * price
+  }
+  for (const p of allPayments) {
+    cumulativePaid += p.usdAmount ?? p.amount
+  }
+
+  const totalDebt = Math.max(0, +(cumulativeDebt - cumulativePaid).toFixed(2))
 
   return NextResponse.json({ products, productions, transfers, sales, waste, payments, totalDebt })
 }
