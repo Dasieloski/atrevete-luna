@@ -172,6 +172,7 @@ export function QuickProcessModal({ open, onClose, onComplete }: QuickProcessMod
 
   return (
     <Modal
+      open={open}
       title="Proceso rápido"
       subtitle="Producción + traslado + venta en un solo paso"
       onClose={onClose}
