@@ -412,8 +412,10 @@ export default function DashboardClient() {
     const fromStr = dateRange.from || '2000-01-01'
     const toStr = dateRange.to || todayInputDate()
 
-    const start = new Date(fromStr + 'T00:00:00')
-    const end = new Date(toStr + 'T00:00:00')
+    const [fy, fm, fd] = fromStr.split('-').map(Number)
+    const [ty, tm, td] = toStr.split('-').map(Number)
+    const start = new Date(fy, fm - 1, fd)
+    const end = new Date(ty, tm - 1, td)
 
     const debtDates = Object.keys(allTimeDebtBalance).sort()
     let lastRemaining = 0
@@ -423,7 +425,10 @@ export default function DashboardClient() {
 
     const rows: ResumenRow[] = []
     for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
-      const dateStr = dt.toLocaleDateString('en-CA')
+      const y = dt.getFullYear()
+      const m = String(dt.getMonth() + 1).padStart(2, '0')
+      const d = String(dt.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
       const day = allTimeDailyData[dateStr]
 
       if (allTimeDebtBalance[dateStr] !== undefined) {
