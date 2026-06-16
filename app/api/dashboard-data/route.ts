@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     cumulativeDebt += t.quantity * price
   }
   for (const p of allPayments) {
-    cumulativePaid += p.currency === 'CUP' ? (p.usdAmount ?? 0) : (p.usdAmount ?? p.amount)
+    cumulativePaid += p.usdAmount ?? p.amount
   }
 
   const totalDebt = Math.max(0, +(cumulativeDebt - cumulativePaid).toFixed(2))

@@ -198,7 +198,7 @@ function buildDailyData(
         distributionValue: 0,
         payments: 0,
       }
-    map[key].payments += p.currency === 'CUP' ? (p.usdAmount ?? 0) : (p.usdAmount ?? p.amount)
+    map[key].payments += p.usdAmount ?? p.amount
   }
 
   const priceMap: Record<string, number> = {}
