@@ -87,7 +87,10 @@ interface WasteRecord {
 interface PaymentRecord {
   id: string
   amount: number
+  currency: string
   usdAmount: number | null
+  cupAmount: number | null
+  boxes: number | null
   date: string
   type: string
   notes: string | null
@@ -195,7 +198,7 @@ function buildDailyData(
         distributionValue: 0,
         payments: 0,
       }
-    map[key].payments += p.usdAmount ?? p.amount
+    map[key].payments += p.currency === 'CUP' ? (p.usdAmount ?? 0) : (p.usdAmount ?? p.amount)
   }
 
   const priceMap: Record<string, number> = {}
@@ -403,23 +406,26 @@ export default function DashboardClient() {
     return result
   }, [allTimeDailyData, allTimeData])
 
-  const allTimeSummaryRows = useMemo(() => {
+  const filteredRows = useMemo(() => {
     if (!allTimeData) return []
 
-    const year = calendarMonth.getFullYear()
-    const month = calendarMonth.getMonth()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const fromStr = dateRange.from || '2000-01-01'
+    const toStr = dateRange.to || todayInputDate()
 
-    // All dates with data, sorted
-    const dataDates = Object.keys(allTimeDailyData).sort()
+    const start = new Date(fromStr + 'T00:00:00')
+    const end = new Date(toStr + 'T00:00:00')
+
+    const debtDates = Object.keys(allTimeDebtBalance).sort()
     let lastRemaining = 0
+    for (const d of debtDates) {
+      if (d < fromStr) lastRemaining = allTimeDebtBalance[d]
+    }
 
     const rows: ResumenRow[] = []
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+      const dateStr = dt.toLocaleDateString('en-CA')
       const day = allTimeDailyData[dateStr]
 
-      // Find remaining for this date
       if (allTimeDebtBalance[dateStr] !== undefined) {
         lastRemaining = allTimeDebtBalance[dateStr]
       }
@@ -436,25 +442,21 @@ export default function DashboardClient() {
       }
 
       for (const prod of allTimeData.products) {
-        // Produced
         const prodUnits = day ? (day.production[prod.id] || 0) : 0
         const prodBoxes = prod.unitsPerBox > 0 ? Math.floor(prodUnits / prod.unitsPerBox) : 0
         const prodValue = prodUnits * (prod.priceWarehouse || 0)
         row.products[prod.id] = { boxes: prodBoxes, value: prodValue }
 
-        // Transferred (recogido)
         const transUnits = day ? (day.transfers[prod.id] || 0) : 0
         const transBoxes = prod.unitsPerBox > 0 ? Math.floor(transUnits / prod.unitsPerBox) : 0
         const transValue = transUnits * (prod.priceWarehouse || 0)
         row.transfers[prod.id] = { boxes: transBoxes, value: transValue }
 
-        // Sold (vendido)
         const saleUnits = day ? (day.sales[prod.id]?.quantity || 0) : 0
         const saleBoxes = prod.unitsPerBox > 0 ? Math.floor(saleUnits / prod.unitsPerBox) : 0
         const saleValue = day ? (day.sales[prod.id]?.total || 0) : 0
         row.sales[prod.id] = { boxes: saleBoxes, value: saleValue }
 
-        // Stock
         const stock = stockByDate[dateStr]
         row.factoryStock[prod.id] = stock?.factoryStock[prod.id] ?? 0
         row.warehouseStock[prod.id] = stock?.warehouseStock[prod.id] ?? 0
@@ -464,17 +466,17 @@ export default function DashboardClient() {
     }
 
     return rows.reverse()
-  }, [allTimeDailyData, allTimeDebtBalance, allTimeData, calendarMonth, stockByDate])
+  }, [allTimeDailyData, allTimeDebtBalance, allTimeData, dateRange, stockByDate])
 
   const allTimeTotalPending = useMemo(() => {
-    if (allTimeSummaryRows.length === 0) return 0
-    const lastRemaining = allTimeSummaryRows[0].remaining
+    if (filteredRows.length === 0) return 0
+    const lastRemaining = filteredRows[0].remaining
     return lastRemaining > 0 ? lastRemaining : 0
-  }, [allTimeSummaryRows])
+  }, [filteredRows])
 
   const allTimeTotalPaid = useMemo(() => {
-    return allTimeSummaryRows.reduce((s, r) => s + r.payments, 0)
-  }, [allTimeSummaryRows])
+    return filteredRows.reduce((s, r) => s + r.payments, 0)
+  }, [filteredRows])
 
   const totalProduction = useMemo(
     () => data?.productions.reduce((s, p) => s + p.quantity, 0) ?? 0,
@@ -617,55 +619,14 @@ export default function DashboardClient() {
         <div className="space-y-6">
           {/* Resumen */}
           <section className="ts-card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
+            <div className="border-b border-hairline px-5 py-4 sm:px-6">
               <div className="flex items-center gap-2">
                 <Table2 className="h-4 w-4 text-muted" />
                 <h2 className="text-sm font-medium text-ink">Resumen</h2>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    setCalendarMonth(
-                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
-                    )
-                  }
-                  className="ts-btn-icon"
-                  aria-label="Mes anterior"
-                  title="Mes anterior"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <input
-                  type="month"
-                  value={`${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`}
-                  onChange={(e) => {
-                    const [y, m] = e.target.value.split('-').map(Number)
-                    setCalendarMonth(new Date(y, m - 1, 1))
-                  }}
-                  className="rounded-md border border-hairline bg-surface px-2 py-1 text-xs font-medium text-ink focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <button
-                  onClick={() =>
-                    setCalendarMonth(
-                      new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
-                    )
-                  }
-                  className="ts-btn-icon"
-                  aria-label="Mes siguiente"
-                  title="Mes siguiente"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setCalendarMonth(new Date())}
-                  className="ml-1 rounded-md border border-hairline bg-ash/50 px-2 py-1 text-[11px] font-medium text-muted transition-colors hover:bg-ash hover:text-ink"
-                >
-                  Hoy
-                </button>
-              </div>
             </div>
             <DailyResumenTable
-              rows={allTimeSummaryRows}
+              rows={filteredRows}
               products={allTimeData?.products ?? []}
               totalPending={allTimeTotalPending}
               totalPaid={allTimeTotalPaid}

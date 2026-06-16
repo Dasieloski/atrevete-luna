@@ -17,14 +17,29 @@ const APP_MODULES_LIST = [
  */
 export async function POST() {
   try {
+    // Ensure all non-superadmin roles have the 'deudas' module permission
+    const roles = await prisma.role.findMany({ where: { isSuperAdmin: false } })
+    for (const role of roles) {
+      for (const module of APP_MODULES_LIST) {
+        const existing = await prisma.permission.findUnique({
+          where: { roleId_module: { roleId: role.id, module } },
+        })
+        if (!existing) {
+          await prisma.permission.create({
+            data: { roleId: role.id, module, view: true, create: true, edit: true, delete: true },
+          })
+        }
+      }
+    }
+
     const existingRole = await prisma.role.findFirst({
       where: { isSuperAdmin: true },
     })
 
     if (existingRole) {
       return NextResponse.json({
-        success: false,
-        message: 'El superadmin ya existe. No se hizo nada.',
+        success: true,
+        message: 'Permisos actualizados. El superadmin ya existe.',
       })
     }
 

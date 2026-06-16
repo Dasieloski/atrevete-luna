@@ -119,11 +119,10 @@ export default function PagosPage() {
       if (p.currency === 'CUP' && p.cupAmount) {
         payCUPByDay.set(d, (payCUPByDay.get(d) || 0) + p.cupAmount)
       }
-      const usd = p.usdAmount ?? p.amount
+      const usd = p.currency === 'CUP' ? (p.usdAmount ?? 0) : (p.usdAmount ?? p.amount)
       if (usd) {
         payUSDByDay.set(d, (payUSDByDay.get(d) || 0) + usd)
       }
-      // Cajas pagadas: si viene en el payment usarla, si no calcular desde USD
       const boxesPaid = p.boxes ?? (usd > 0 ? usd / (UNITS_PER_BOX * FACTORY_PRICE) : 0)
       if (boxesPaid > 0) {
         payBoxesByDay.set(d, (payBoxesByDay.get(d) || 0) + boxesPaid)
@@ -154,7 +153,7 @@ export default function PagosPage() {
 
     for (const p of allPayments) {
       const d = p.date.split('T')[0]
-      const usd = p.usdAmount ?? p.amount
+      const usd = p.currency === 'CUP' ? (p.usdAmount ?? 0) : (p.usdAmount ?? p.amount)
       runningPayments += usd
       paymentsByDay.set(d, runningPayments)
     }

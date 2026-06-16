@@ -63,8 +63,8 @@ export async function POST(request: Request) {
         data: {
           amount: totalApplied,
           currency: paymentCurrency,
-          usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? totalApplied : null),
-          cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? totalApplied : null),
+          usdAmount: usdAmount ?? (paymentCurrency === 'USD' ? totalApplied : 0),
+          cupAmount: cupAmount ?? (paymentCurrency === 'CUP' ? totalApplied : 0),
           boxes: boxes ?? null,
           exchangeRate: exchangeRate ?? null,
           date: new Date(date + 'T00:00:00'),
