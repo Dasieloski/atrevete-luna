@@ -36,7 +36,7 @@ import { Tabs } from '@/src/components/ui/Tabs'
 import { Badge } from '@/src/components/ui/Badge'
 import { cn } from '@/src/lib/utils'
 import type { DateRange } from '@/src/lib/business'
-import { formatCurrency, formatNumber, formatDate, yearStartInputDate, todayInputDate } from '@/src/lib/format'
+import { formatCurrency, formatNumber, formatDate, monthStartInputDate, todayInputDate } from '@/src/lib/format'
 
 interface ProductInfo {
   id: string
@@ -246,7 +246,7 @@ function buildDailyData(
 type View = 'calendar' | 'table' | 'charts'
 
 export default function DashboardClient() {
-  const [dateRange, setDateRange] = useState<DateRange>({ from: yearStartInputDate(), to: todayInputDate() })
+  const [dateRange, setDateRange] = useState<DateRange>({ from: monthStartInputDate(), to: todayInputDate() })
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
